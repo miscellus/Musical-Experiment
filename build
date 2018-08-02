@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+gcc -std=c99 -o music music.c -lm
+./music ble.wav && thunar ble.wav
