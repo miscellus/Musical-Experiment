@@ -3,14 +3,8 @@
 #include <stdio.h>
 #include <math.h>
 
-#define SAMPLE_RATE 44100
-#include "frequencies.h"
+#include "global_constants.h"
 #include "wave_file.h"
-
-typedef double (*voice_function)(double);
-
-#define rerange(v, from_min, from_max, to_min, to_max) \
-    ((to_min) + (((v)-(from_min))/((from_max) - (from_min))) * ((from_max) - (from_min)))
 
 static double triangle_wave(double v) {
     v = fmod(v, TAU) / TAU;
@@ -160,47 +154,60 @@ int main(int argc, char const *argv[])
     play_chord chord = song2[chord_index];
     play_chord chord2 = song2[chord_index2];
 
-    double b = 0; 
-    while (chord_index < sizeof(song)/sizeof(*song)) {
-        if (t >= chord.t) {
-            t = fmod(t, chord.t);
-            chord_index += 1;
-            chord = song2[chord_index];
-            fade = 1;
-            v[1] = 0;
-        }
-        if (t2 >= chord2.t) {
-            t2 = fmod(t2, chord2.t);
-            chord_index2 += 1;
-            chord2 = song2[chord_index2];
-            v[2] = 0;
-        }
-        //v[0] += chord.n * S12;
-        v[1] += chord.n * s12;
-        v[2] += chord2.n;
-        // v[3] += chord.n * S36;
-        // fade *= 1-4.0/SAMPLE_RATE;
-        sum = (
-            +triangle_wave(v[1])
-            +sin(v[2])
-        )/2;
+    double time_advance = 0; 
+    // while (chord_index < sizeof(song)/sizeof(*song)) {
+    while (sample_count < 2*SAMPLE_RATE) {
 
-        sum *= 0.75;
+        // if (t >= chord.t) {
+        //     t = fmod(t, chord.t);
+        //     chord_index += 1;
+        //     chord = song2[chord_index];
+        //     fade = 1;
+        //     v[1] = 0;
+        // }
+        // if (t2 >= chord2.t) {
+        //     t2 = fmod(t2, chord2.t);
+        //     chord_index2 += 1;
+        //     chord2 = song2[chord_index2];
+        //     v[2] = 0;
+        // }
+        //v[0] += chord.n * S12;
+
+        time_advance += TAU / SAMPLE_RATE;
+        
+        // fade *= 1-4.0/SAMPLE_RATE;
+        
+        if (sample_count < SAMPLE_RATE) {
+            sum = (
+                +square_wave(time_advance * c5)
+                +triangle_wave(time_advance * e5)
+                +sin(time_advance * g5)
+                );
+        }
+        else if (sample_count >= SAMPLE_RATE) {
+            sum = (
+                +square_wave(time_advance * c5)
+                +triangle_wave(time_advance * D5)
+                +sin(time_advance * g5)
+                );
+        }
+
+        sum *= AMPLITUDE;
 
         if (sum > 1) sum = 1;
         if (sum < -1) sum = -1;
 
         samples[sample_count++] = (int16_t)(sum*32767.5);
 
-        t += 16*(2/(double)SAMPLE_RATE) * 1.3;
-        t2 += 16*(2/(double)SAMPLE_RATE) * 1.3;
+        // t += 16*(2/(double)SAMPLE_RATE) * 1.3;
+        // t2 += 16*(2/(double)SAMPLE_RATE) * 1.3;
     }
 
     save_wave_file(samples, sample_count, (char *)argv[1], SAMPLE_RATE);
 
-    for (double x = 0; x <= TAU; x += TAU/8) {
-        printf("%f -> %f\n", x, triangle_wave(x));
-    }
+    // for (double x = 0; x <= TAU; x += TAU/8) {
+    //     printf("%f -> %f\n", x, triangle_wave(x));
+    // }
 
     return 0;
 }
