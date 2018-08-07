@@ -2,7 +2,7 @@
 #define GLOBAL_CONSTANTS_H
 
 #ifndef SAMPLES_PER_SECOND
-#define SAMPLES_PER_SECOND 44100
+#define SAMPLES_PER_SECOND 8000
 #endif
 
 #ifndef AMPLITUDE
@@ -10,7 +10,7 @@
 #endif
 
 #ifndef BEATS_PER_MINUTE
-#define BEATS_PER_MINUTE 90
+#define BEATS_PER_MINUTE 0.5
 #endif
 
 #define BEATS_PER_SECOND (BEATS_PER_MINUTE/60.0)
@@ -133,7 +133,7 @@
 #define S50 17.959392772949972   //2**(50/12)
 
 /*
-Note Frequency (Hz) Wavelength (cm)
+Note Frequency in hertz (Wavelength in centimeters)
 */
 #define c0 (s57 * 440)
 #define C0 (s56 * 440)

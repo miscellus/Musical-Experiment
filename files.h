@@ -1,6 +1,7 @@
-#ifndef WAVE_FILE_H
-#define WAVE_FILE_H
+#ifndef FILES_H
+#define FILES_H
 
+#include <assert.h>
 #include <stdint.h>
 
 typedef struct wav_header {
@@ -25,7 +26,7 @@ typedef struct wav_header {
     // uint8_t bytes[]; // Remainder of wave file is bytes
 } wav_header;
 
-static void save_wave_file(int16_t *samples, size_t num_samples, char *filename, uint32_t sample_rate) {
+static void save_wave_file(int16_t *samples, size_t num_samples, const char *filename, uint32_t sample_rate) {
     size_t total_file_size = sizeof(wav_header) + num_samples*sizeof(int16_t);
     
     wav_header wh;
@@ -44,10 +45,51 @@ static void save_wave_file(int16_t *samples, size_t num_samples, char *filename,
     wh.data_header = four_chars("data");
     wh.data_bytes = num_samples*sizeof(int16_t);
 
-    FILE *wf = fopen(filename, "wb");
-    fwrite(&wh, sizeof(wh), 1, wf);
-    fwrite(samples, sizeof(int16_t), num_samples, wf);
-    fclose(wf);
+    FILE *file_handle = fopen(filename, "wb");
+    fwrite(&wh, sizeof(wh), 1, file_handle);
+    fwrite(samples, sizeof(int16_t), num_samples, file_handle);
+    fclose(file_handle);
+}
+
+typedef struct {
+    char *buffer;
+    size_t size;
+} entire_file;
+
+entire_file read_entire_file(const char *filename) {
+    entire_file result;
+    result.buffer = NULL;
+    result.size = 0;
+
+    FILE *file_handle = fopen(filename, "rb");
+    fseek(file_handle, 0, SEEK_END);
+    result.size = ftell(file_handle);
+    rewind(file_handle);
+
+    result.buffer = malloc(result.size);
+    assert(result.buffer);
+
+    assert(fread(result.buffer, 1, result.size, file_handle) == result.size);
+
+    fclose(file_handle);
+
+    return result;
+}
+
+typedef struct {
+    uint32_t beats_per_minute;
+    uint32_t samples_per_second;
+} loaded_song;
+
+loaded_song load_song_file(const char *filename) {
+    loaded_song song;
+
+    song.beats_per_minute = 120;
+    song.samples_per_second = 44100;
+
+    entire_file file = read_entire_file(filename);
+
+    
 }
 
 #endif

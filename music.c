@@ -68,17 +68,25 @@ static note_hit lullaby[] = {
     {a4,1},
     {g4,1},
     {f4,5/2.},
-    {00,8},
+    {00,2},
 };
+
+#define MAX_SAMPLES (SAMPLES_PER_SECOND*60*60)
 
 int main(int argc, char const *argv[])
 {
-    if (argc < 2) {
-        fprintf(stderr, "USAGE: music <output_filename>\n");
+    if (argc <= 2) {
+        fprintf(stderr, "USAGE: music <input csv file> <output wave file>\n");
         return -1;
     }
 
-    size_t sample_count = 0;
+    const char *input_song_file = argv[1];
+    const char *output_wave_file = argv[2];
+
+    loaded_song song = load_song_file(input_song_file);
+
+    int16_t *samples = malloc(MAX_SAMPLES * sizeof(*samples));
+    size_t sample_index = 0;
     double time_elapsed = 0; // in seconds
     double time_hit = 0;
     double time_hit_end = lullaby[0].duration*SECONDS_PER_BEAT;
@@ -86,12 +94,14 @@ int main(int argc, char const *argv[])
     int note_index = 0;
     note_hit hit = lullaby[note_index];
 
-    int16_t *samples = malloc(100*1024*1024);
     double sum;
 
-    double fade = 2*SECONDS_PER_BEAT;
+    double fade = 5*SECONDS_PER_BEAT;
 
-    while (note_index < sizeof(lullaby)/sizeof(*lullaby)) {
+    fprintf(stderr, "Generating song, \"%s\":\n", argv[1]);
+
+    while (sample_index < MAX_SAMPLES && note_index < sizeof(lullaby)/sizeof(*lullaby)) {
+
         // Advance song if next note reached
         if (time_elapsed >= time_hit_end) {
             note_index += 1;
@@ -100,19 +110,28 @@ int main(int argc, char const *argv[])
             time_hit_end = time_hit + hit.duration*SECONDS_PER_BEAT;
         }
 
-        sum = triangle_wave(time_elapsed * hit.frequency);
+        sum = 0;
+        sum += triangle_wave((time_elapsed) * hit.frequency);
+        // sum += triangle_wave((time_elapsed) * hit.frequency * S12 * 0.995);
+        // sum += triangle_wave((time_elapsed) * hit.frequency * S12 * 1.005);
+        // sum /= 3;
 
-        sum *= AMPLITUDE * pow((1 - min(fade, time_elapsed-time_hit)/fade),5);
+        sum *= AMPLITUDE * pow((1 - min(fade, time_elapsed-time_hit)/fade),10);
 
         sum = clamp(sum, -1, 1);
 
-        samples[sample_count] = (int16_t)(sum*32768);
+        samples[sample_index] = (int16_t)(sum * 0x8000);
 
-        sample_count += 1;
-        time_elapsed = sample_count * (1.0/SAMPLES_PER_SECOND);
+        sample_index += 1;
+        time_elapsed = (double)sample_index / (double)SAMPLES_PER_SECOND;
+
+        if (sample_index % SAMPLES_PER_SECOND == 0) {
+            fprintf(stderr, "\rSong length: %d seconds.", (uint64_t)(sample_index/SAMPLES_PER_SECOND));
+        }
     }
+    fprintf(stderr, "\n");
 
-    save_wave_file(samples, sample_count, (char *)argv[1], SAMPLES_PER_SECOND);
+    save_wave_file(samples, sample_index, output_wave_file, SAMPLES_PER_SECOND);
 
     return 0;
 }
