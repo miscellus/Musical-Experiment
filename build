@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-gcc -std=c99 -o music -DBEATS_PER_MINUTE=150 music.c -lm
+gcc -std=c99 -o music music.c -lm
 
 if [[ $2 = "run" ]]; then
-    ./music song.wav
+    ./music lullaby.csv song.wav
     cvlc --no-loop song.wav
 else
     read line

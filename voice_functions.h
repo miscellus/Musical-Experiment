@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-static double triangle_wave(double v) {
+static double TriangleWave(double v) {
     v -= (double)(int64_t)v;
 
     if (v < 0.25) {
@@ -19,7 +19,7 @@ static double triangle_wave(double v) {
     return v;
 }
 
-static double square_wave(double v) {
+static double SquareWave(double v) {
     v -= (double)(int64_t)v;
 
     if (v < 0.5) v = 1;

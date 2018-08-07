@@ -6,14 +6,14 @@
 #include "helpers.h"
 #include "global_constants.h"
 #include "voice_functions.h"
-#include "wave_file.h"
+#include "files.h"
 
 typedef struct {
-    double frequency; // In hertz
-    double duration; // In beats
+    double Frequency; // In hertz
+    double Duration; // In beats
 } note_hit;
 
-static note_hit lullaby_[] = {{00,1},
+static note_hit Lullaby_[] = {{00,1},
     {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
     {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
     {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
@@ -25,7 +25,7 @@ static note_hit lullaby_[] = {{00,1},
 };
 
 
-static note_hit lullaby[] = {
+static note_hit Lullaby[] = {
     {a4,1/2.},
     {a4,1/2.},
     {c5,2},
@@ -73,65 +73,65 @@ static note_hit lullaby[] = {
 
 #define MAX_SAMPLES (SAMPLES_PER_SECOND*60*60)
 
-int main(int argc, char const *argv[])
+int main(int ArgumentCount, char const *Arguments[])
 {
-    if (argc <= 2) {
+    if (ArgumentCount <= 2) {
         fprintf(stderr, "USAGE: music <input csv file> <output wave file>\n");
         return -1;
     }
 
-    const char *input_song_file = argv[1];
-    const char *output_wave_file = argv[2];
+    const char *InputSongFile = Arguments[1];
+    const char *OutputWaveFile = Arguments[2];
 
-    loaded_song song = load_song_file(input_song_file);
+    loaded_song Song = LoadSongFile(InputSongFile);
 
-    int16_t *samples = malloc(MAX_SAMPLES * sizeof(*samples));
-    size_t sample_index = 0;
-    double time_elapsed = 0; // in seconds
-    double time_hit = 0;
-    double time_hit_end = lullaby[0].duration*SECONDS_PER_BEAT;
+    int16_t *Samples = malloc(MAX_SAMPLES * sizeof(*Samples));
+    size_t SampleIndex = 0;
+    double TimeElapsed = 0; // in seconds
+    double TimeHit = 0;
+    double TimeHitEnd = Lullaby[0].Duration*SECONDS_PER_BEAT;
 
-    int note_index = 0;
-    note_hit hit = lullaby[note_index];
+    int NoteIndex = 0;
+    note_hit Hit = Lullaby[NoteIndex];
 
-    double sum;
+    double Sum;
 
-    double fade = 5*SECONDS_PER_BEAT;
+    double Fade = 5*SECONDS_PER_BEAT;
 
-    fprintf(stderr, "Generating song, \"%s\":\n", argv[1]);
+    fprintf(stderr, "Generating song, \"%s\":\n", Arguments[1]);
 
-    while (sample_index < MAX_SAMPLES && note_index < sizeof(lullaby)/sizeof(*lullaby)) {
+    while (SampleIndex < MAX_SAMPLES && NoteIndex < sizeof(Lullaby)/sizeof(*Lullaby)) {
 
         // Advance song if next note reached
-        if (time_elapsed >= time_hit_end) {
-            note_index += 1;
-            hit = lullaby[note_index];
-            time_hit = time_elapsed;
-            time_hit_end = time_hit + hit.duration*SECONDS_PER_BEAT;
+        if (TimeElapsed >= TimeHitEnd) {
+            NoteIndex += 1;
+            Hit = Lullaby[NoteIndex];
+            TimeHit = TimeElapsed;
+            TimeHitEnd = TimeHit + Hit.Duration*SECONDS_PER_BEAT;
         }
 
-        sum = 0;
-        sum += triangle_wave((time_elapsed) * hit.frequency);
+        Sum = 0;
+        Sum += TriangleWave((TimeElapsed) * Hit.Frequency);
         // sum += triangle_wave((time_elapsed) * hit.frequency * S12 * 0.995);
         // sum += triangle_wave((time_elapsed) * hit.frequency * S12 * 1.005);
         // sum /= 3;
 
-        sum *= AMPLITUDE * pow((1 - min(fade, time_elapsed-time_hit)/fade),10);
+        Sum *= AMPLITUDE * pow((1 - Min(Fade, TimeElapsed-TimeHit)/Fade),10);
 
-        sum = clamp(sum, -1, 1);
+        Sum = Clamp(Sum, -1, 1);
 
-        samples[sample_index] = (int16_t)(sum * 0x8000);
+        Samples[SampleIndex] = (int16_t)(Sum * 0x8000);
 
-        sample_index += 1;
-        time_elapsed = (double)sample_index / (double)SAMPLES_PER_SECOND;
+        SampleIndex += 1;
+        TimeElapsed = (double)SampleIndex / (double)SAMPLES_PER_SECOND;
 
-        if (sample_index % SAMPLES_PER_SECOND == 0) {
-            fprintf(stderr, "\rSong length: %d seconds.", (uint64_t)(sample_index/SAMPLES_PER_SECOND));
+        if (SampleIndex % SAMPLES_PER_SECOND == 0) {
+            fprintf(stderr, "\rSong length: %d seconds.", (uint64_t)(SampleIndex/SAMPLES_PER_SECOND));
         }
     }
     fprintf(stderr, "\n");
 
-    save_wave_file(samples, sample_index, output_wave_file, SAMPLES_PER_SECOND);
+    SaveWaveFile(Samples, SampleIndex, OutputWaveFile, SAMPLES_PER_SECOND);
 
     return 0;
 }
