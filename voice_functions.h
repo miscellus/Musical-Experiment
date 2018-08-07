@@ -1,8 +1,10 @@
 #ifndef VOICE_FUNCTIONS_H
 #define VOICE_FUNCTIONS_H 1
 
+#include <stdint.h>
+
 static double triangle_wave(double v) {
-    v = fmod(v, 1.0);
+    v -= (double)(int64_t)v;
 
     if (v < 0.25) {
         v = v / 0.25;
@@ -18,7 +20,7 @@ static double triangle_wave(double v) {
 }
 
 static double square_wave(double v) {
-    v = fmod(v, 1.0);
+    v -= (double)(int64_t)v;
 
     if (v < 0.5) v = 1;
     else v = -1;

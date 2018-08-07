@@ -25,8 +25,6 @@ typedef struct wav_header {
     // uint8_t bytes[]; // Remainder of wave file is bytes
 } wav_header;
 
-#define four_chars(s) (uint32_t)((s[3]<<24) | (s[2]<<16) | (s[1]<<8) | s[0])
-
 static void save_wave_file(int16_t *samples, size_t num_samples, char *filename, uint32_t sample_rate) {
     size_t total_file_size = sizeof(wav_header) + num_samples*sizeof(int16_t);
     

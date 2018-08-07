@@ -14,11 +14,14 @@ typedef struct {
 } note_hit;
 
 static note_hit lullaby_[] = {{00,1},
-    {c3,1},{e3,1},{g3,1},
-    {c4,1},{d4,1},{e4,1},{f4,1},{g4,1},{a4,1},{b4,1},
-    {c5,1},{d5,1},{e5,1},{f5,1},{g5,1},{a5,1},{b5,1},
-    {c6,1},{d6,1},{e6,1},{f6,1},{g6,1},{a6,1},{b6,1},
-    {c7,1},{d7,1},{e7,1},{f7,1},{g7,1},{a7,1},{b7,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
+    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
 };
 
 
@@ -86,6 +89,8 @@ int main(int argc, char const *argv[])
     int16_t *samples = malloc(100*1024*1024);
     double sum;
 
+    double fade = 2*SECONDS_PER_BEAT;
+
     while (note_index < sizeof(lullaby)/sizeof(*lullaby)) {
         // Advance song if next note reached
         if (time_elapsed >= time_hit_end) {
@@ -97,7 +102,7 @@ int main(int argc, char const *argv[])
 
         sum = triangle_wave(time_elapsed * hit.frequency);
 
-        sum *= AMPLITUDE * (1 - pow(min(0.5,time_elapsed-time_hit)/0.5, 1.5));
+        sum *= AMPLITUDE * pow((1 - min(fade, time_elapsed-time_hit)/fade),5);
 
         sum = clamp(sum, -1, 1);
 
