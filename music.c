@@ -3,138 +3,69 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "helpers.h"
 #include "global_constants.h"
+#include "voice_functions.h"
 #include "wave_file.h"
 
-static double triangle_wave(double v) {
-    v = fmod(v, TAU) / TAU;
-
-    if (v < 0.25) {
-        v = v / 0.25;
-    }
-    else if (v < 0.75) {
-        v = 1 - 2*((v - 0.25) / 0.5);
-    }
-    else {          
-        v = -1 + (v - 0.75) / 0.25;
-    }
-
-    return v;
-}
-
-static double square_wave(double v) {
-    v = fmod(v, TAU) / TAU;
-
-    if (v < 0.5) v = 1;
-    else v = -1;
-
-    return v;
-}
-
-static double v[10];
-
 typedef struct {
-    double n;
-    double t;
-    //voice_function voice;
-} play_chord;
+    double frequency; // In hertz
+    double duration; // In beats
+} note_hit;
 
-// 120 / bpm
-
-// 4000.0  t/m*(m/b) t/b
-
-//120 bpm = 2.0 bps
-
-static play_chord song2[] = {
-    {00,144},
-    {a4,12},
-    {a4,12},
-    {c5,48},
-    {a4,12},
-    {a4,12},
-    {c5,48},
-    {a4,12},
-    {c5,12},
-    {f5,24},
-    {e5,36},
-    {d5,12},
-    {d5,24},
-    {c5,24},
-    {g4,12},
-    {a4,12},
-    {A4,36},
-    {g4,12},
-    {g4,12},
-    {a4,12},
-    {A4,36},
-    {g4,12},
-    {g4,12},
-    {A4,12},
-    {e5,12},
-    {d5,12},
-    {c5,24},
-    {e5,24},
-    {f5,48},
-    {f4,12},
-    {f4,12},
-    {f5,48},
-    {d5,12},
-    {A4,12},
-    {c5,48},
-    {a4,12},
-    {f4,12},
-    {A4,7},
-    {c5,8},
-    {A4,9},
-    {a4,24},
-    {g4,24},
-    {f4,60},
-    {00,40},
+static note_hit lullaby_[] = {{00,1},
+    {c3,1},{e3,1},{g3,1},
+    {c4,1},{d4,1},{e4,1},{f4,1},{g4,1},{a4,1},{b4,1},
+    {c5,1},{d5,1},{e5,1},{f5,1},{g5,1},{a5,1},{b5,1},
+    {c6,1},{d6,1},{e6,1},{f6,1},{g6,1},{a6,1},{b6,1},
+    {c7,1},{d7,1},{e7,1},{f7,1},{g7,1},{a7,1},{b7,1},
 };
-static play_chord song[] = {
-    {f4,60},
-    {g4,24},
-    {a4,24},
-    {A4,9},
-    {c5,8},
-    {A4,7},
-    {f4,12},
-    {a4,12},
-    {c5,48},
-    {A4,12},
-    {d5,12},
-    {f5,48},
-    {f4,12},
-    {f4,12},
-    {f5,48},
-    {e5,24},
-    {c5,24},
-    {d5,12},
-    {e5,12},
-    {A4,12},
-    {g4,12},
-    {g4,12},
-    {A4,36},
-    {a4,12},
-    {g4,12},
-    {g4,12},
-    {A4,36},
-    {a4,12},
-    {g4,12},
-    {c5,24},
-    {d5,24},
-    {d5,12},
-    {e5,36},
-    {f5,24},
-    {c5,12},
-    {a4,12},
-    {c5,48},
-    {a4,12},
-    {a4,12},
-    {c5,48},
-    {a4,12},
-    {a4,12},
-    {00,40},
+
+
+static note_hit lullaby[] = {
+    {a4,1/2.},
+    {a4,1/2.},
+    {c5,2},
+    {a4,1/2.},
+    {a4,1/2.},
+    {c5,2},
+    {a4,1/2.},
+    {c5,1/2.},
+    {f5,1},
+    {e5,3/2.},
+    {d5,1/2.},
+    {d5,1},
+    {c5,1},
+    {g4,1/2.},
+    {a4,1/2.},
+    {A4,3/2.},
+    {g4,1/2.},
+    {g4,1/2.},
+    {a4,1/2.},
+    {A4,3/2.},
+    {g4,1/2.},
+    {g4,1/2.},
+    {A4,1/2.},
+    {e5,1/2.},
+    {d5,1/2.},
+    {c5,1},
+    {e5,1},
+    {f5,2},
+    {f4,1/2.},
+    {f4,1/2.},
+    {f5,2},
+    {d5,1/2.},
+    {A4,1/2.},
+    {c5,2},
+    {a4,1/2.},
+    {f4,1/2.},
+    {A4,7./24.},
+    {c5,1./3.},
+    {A4,3./8.},
+    {a4,1},
+    {g4,1},
+    {f4,5/2.},
+    {00,8},
 };
 
 int main(int argc, char const *argv[])
@@ -143,71 +74,40 @@ int main(int argc, char const *argv[])
         fprintf(stderr, "USAGE: music <output_filename>\n");
         return -1;
     }
-    double t = 0;
-    double t2 = 0;
-    double fade = 1;
-    int chord_index = 1;
-    int chord_index2 = 0;
-    double sum;
+
     size_t sample_count = 0;
+    double time_elapsed = 0; // in seconds
+    double time_hit = 0;
+    double time_hit_end = lullaby[0].duration*SECONDS_PER_BEAT;
+
+    int note_index = 0;
+    note_hit hit = lullaby[note_index];
+
     int16_t *samples = malloc(100*1024*1024);
-    play_chord chord = song2[chord_index];
-    play_chord chord2 = song2[chord_index2];
+    double sum;
 
-    double time_advance = 0; 
-    // while (chord_index < sizeof(song)/sizeof(*song)) {
-    while (sample_count < 2*SAMPLE_RATE) {
-
-        // if (t >= chord.t) {
-        //     t = fmod(t, chord.t);
-        //     chord_index += 1;
-        //     chord = song2[chord_index];
-        //     fade = 1;
-        //     v[1] = 0;
-        // }
-        // if (t2 >= chord2.t) {
-        //     t2 = fmod(t2, chord2.t);
-        //     chord_index2 += 1;
-        //     chord2 = song2[chord_index2];
-        //     v[2] = 0;
-        // }
-        //v[0] += chord.n * S12;
-
-        time_advance += TAU / SAMPLE_RATE;
-        
-        // fade *= 1-4.0/SAMPLE_RATE;
-        
-        if (sample_count < SAMPLE_RATE) {
-            sum = (
-                +square_wave(time_advance * c5)
-                +triangle_wave(time_advance * e5)
-                +sin(time_advance * g5)
-                );
-        }
-        else if (sample_count >= SAMPLE_RATE) {
-            sum = (
-                +square_wave(time_advance * c5)
-                +triangle_wave(time_advance * D5)
-                +sin(time_advance * g5)
-                );
+    while (note_index < sizeof(lullaby)/sizeof(*lullaby)) {
+        // Advance song if next note reached
+        if (time_elapsed >= time_hit_end) {
+            note_index += 1;
+            hit = lullaby[note_index];
+            time_hit = time_elapsed;
+            time_hit_end = time_hit + hit.duration*SECONDS_PER_BEAT;
         }
 
-        sum *= AMPLITUDE;
+        sum = triangle_wave(time_elapsed * hit.frequency);
 
-        if (sum > 1) sum = 1;
-        if (sum < -1) sum = -1;
+        sum *= AMPLITUDE * (1 - pow(min(0.5,time_elapsed-time_hit)/0.5, 1.5));
 
-        samples[sample_count++] = (int16_t)(sum*32767.5);
+        sum = clamp(sum, -1, 1);
 
-        // t += 16*(2/(double)SAMPLE_RATE) * 1.3;
-        // t2 += 16*(2/(double)SAMPLE_RATE) * 1.3;
+        samples[sample_count] = (int16_t)(sum*32768);
+
+        sample_count += 1;
+        time_elapsed = sample_count * (1.0/SAMPLES_PER_SECOND);
     }
 
-    save_wave_file(samples, sample_count, (char *)argv[1], SAMPLE_RATE);
-
-    // for (double x = 0; x <= TAU; x += TAU/8) {
-    //     printf("%f -> %f\n", x, triangle_wave(x));
-    // }
+    save_wave_file(samples, sample_count, (char *)argv[1], SAMPLES_PER_SECOND);
 
     return 0;
 }
