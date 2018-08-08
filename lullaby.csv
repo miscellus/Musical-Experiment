@@ -1,8 +1,8 @@
-Settings,"Ins MusicBox"
-bpm=120,a4
-sample_rate=44100,
+BPM=120,MusicBox
+SampleRate=48000,a4
 cells_per_beat=4,
 output_file=song.wav,
+,
 ,a4
 ,
 ,

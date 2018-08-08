@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "length_strings.h"
+#include <memory.h>
 
 typedef struct wav_header {
     // RIFF Header
@@ -53,8 +53,7 @@ static void SaveWaveFile(int16_t *Samples, size_t NumSamples, const char *FileNa
     fclose(FileHandle);
 }
 
-length_string *FileGetContents(const char *FilePath) {
-    length_string *Result = 0;
+void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
     
     FILE *FileHandle = fopen(FilePath, "rb");
 
@@ -64,9 +63,13 @@ length_string *FileGetContents(const char *FilePath) {
         rewind(FileHandle);
         
         if (FileSize > 0) {
-            Result = lsMakeString(FileSize);
-            assert(fread(Result->Chars, 1, FileSize, FileHandle) == FileSize);
-            fclose(FileHandle);
+            *Buffer = malloc(FileSize);
+            assert(Buffer);
+            *BufferSize = FileSize;
+
+            size_t AmountRead = fread(*Buffer, 1, FileSize, FileHandle);
+
+            assert(AmountRead == FileSize);
         }
         else {
             printf("Invalid file size %d for file '%s'\n", (int)FileSize, FilePath);
@@ -76,12 +79,12 @@ length_string *FileGetContents(const char *FilePath) {
         printf("Could not read file '%s'\n", FilePath);
     }
 
-    return Result;
+    fclose(FileHandle);
 }
 
 typedef struct {
     uint32_t BeatsPerMinute;
-    uint32_t SamplesPerSecond;
+    uint32_t SampleRate;
 } loaded_song;
 
 bool IsWhiteSpaceChar(char c) {
@@ -105,40 +108,39 @@ bool IsIdentifierChar(char c) {
     return IsIdentifierStartChar(c) || IsNumericChar(c); 
 }
 
-char *GetIdentifier(char **At, length_string *Token) {
-    char *Result = NULL;
+void GetIdentifier(char **At, char *Buffer, size_t BufferSize) {
     
     if (IsIdentifierStartChar(**At)) {
-        Result = *At;
+        char *From = *At;
 
-        do {
-            lsAppendChar(Token, **At);
-            *At += 1;
-        } while (IsIdentifierChar(**At));
+        do *At += 1; while (IsIdentifierChar(**At));
         
-        lsAppendChar(Token, '\0');
+        size_t Length = *At - From;
+
+        Length = Min(Length, BufferSize - 1);
+
+        memcpy(Buffer, From, Length);
+        Buffer[Length] = '\0';
     }
     else {
         fprintf(stderr, "Invalid identifier. Identifiers must begin with a letter or an underscore.\n"); // TODO(jakob): bette error message
     }
     
-    return Result;
 }
 
-char *GetValue(char **At, length_string *Token) {
-    char *Result = NULL;
+void GetValue(char **At, char *Buffer, size_t BufferSize) {
+    if (IsIdentifierChar(**At)) {
+        char *From = *At;
 
-    if (IsIdentifierChar(**At) || **At == ' ') {
-        Result = *At;
-        do { 
-            lsAppendChar(Token, **At);
-            *At += 1;
-        } while (IsIdentifierChar(**At) || **At == ' ');
+        do *At += 1; while (IsIdentifierChar(**At));
         
-        lsAppendChar(Token, '\0');
-    }
+        size_t Length = *At - From;
 
-    return Result;
+        Length = Min(Length, BufferSize - 1);
+
+        memcpy(Buffer, From, Length);
+        Buffer[Length] = '\0';
+    }
 }
 
 void EatSpaces(char **At) {
@@ -162,54 +164,76 @@ void EatSpaces(char **At) {
 //     struct token_node *Next;
 // } token_node;
 
-typedef enum parse_state {
-    Parsing_Setting,
-    Parsing_Note
-} parse_state;
 
 loaded_song LoadSongFile(const char *FileName) {
     loaded_song Song;
 
     Song.BeatsPerMinute = 120;
-    Song.SamplesPerSecond = 44100;
+    Song.SampleRate = 44100;
 
-    length_string *Sheet = FileGetContents(FileName);
+    char *FileContents;
+    size_t FileSize;
 
-    char *At = Sheet->Chars;
+    FileGetContents(FileName, &FileContents, &FileSize);
+
+    char *At = FileContents;
 
     size_t Column = 0;
     size_t Row = 0;
 
-    char _TokenBuffer[1024];
-    length_string Token = lsMakeString(sizeof(_TokenBuffer), _TokenBuffer);
+    while (At < (FileContents + FileSize)) {
 
-    bool Parsing = true;
-    // Parse column names in the first row
-    while (Parsing && At < (Sheet->Chars + Sheet->Length)) {
-        switch (ParseState) {
-            case Parsing_Setting: {
-                EatSpaces(&At);
-                char *Ident = GetIdentifier(&At, );
+        if (Column == 0 && *At != ',') { // Parse Settings
 
-                EatSpaces(&At);
-                if (*At != '=') {
-                    fprintf(stderr, "Setting missing '=' (equals sign).\n");
-                }
+            char SettingBuffer[128];
+            char ValueBuffer[128];
+
+            EatSpaces(&At);
+            GetIdentifier(&At, SettingBuffer, sizeof(SettingBuffer));
+            EatSpaces(&At);
+
+            if (*At != '=') {
+                fprintf(stderr, "ERROR: Setting missing '=' (equals sign).\n");
+            }
+            ++At;
+            
+            EatSpaces(&At);
+            GetValue(&At, ValueBuffer, sizeof(ValueBuffer));
+
+            bool InvalidSetting = false;
+
+            if (strcmp(SettingBuffer, "BPM") == 0) {
+                Song.BeatsPerMinute = atoi(ValueBuffer);
+            }
+            else if (strcmp(SettingBuffer, "SampleRate") == 0) {
+                Song.SampleRate = atoi(ValueBuffer);
+            }
+            else {
+                fprintf(stderr, "ERROR: Undefined setting, '%s'.\n", SettingBuffer);
+                InvalidSetting = true;
+            }
+
+            if (!InvalidSetting) {
+                fprintf(stderr, "SETTING: %s=%s\n", SettingBuffer, ValueBuffer);
+            }
+        }
+
+        while (At < (FileContents + FileSize)) {
+            if (*At == ',') {
                 ++At;
-                EatSpaces(&At);
-                GetValue(&At, Token2);
+                ++Column;
+                break;
+            }
+            else if (*At == '\n' ) {
+                ++At;
+                Column = 0;
+                ++Row;
+                break;
+            }
 
-                if (lsCompare(Token, "SampleRate")) {
-                    Song.SampleRate = atoi(Token2)
-                }
-
-            } break;
-
-            case Parse_
-
+            ++At;
+        }
     }
-    
-
 
     return Song;
 }
