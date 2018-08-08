@@ -111,10 +111,7 @@ int main(int ArgumentCount, char const *Arguments[])
         }
 
         Sum = 0;
-        Sum += TriangleWave((TimeElapsed) * Hit.Frequency);
-        // sum += triangle_wave((time_elapsed) * hit.frequency * S12 * 0.995);
-        // sum += triangle_wave((time_elapsed) * hit.frequency * S12 * 1.005);
-        // sum /= 3;
+        Sum += TriangleWave(TimeElapsed * Hit.Frequency);
 
         Sum *= AMPLITUDE * pow((1 - Min(Fade, TimeElapsed-TimeHit)/Fade),10);
 

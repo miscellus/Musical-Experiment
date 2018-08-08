@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include "length_strings.h"
 
 typedef struct wav_header {
     // RIFF Header
@@ -52,27 +53,28 @@ static void SaveWaveFile(int16_t *Samples, size_t NumSamples, const char *FileNa
     fclose(FileHandle);
 }
 
-typedef struct {
-    char *Buffer;
-    size_t Size;
-} entire_file;
+length_string *FileGetContents(const char *FilePath) {
+    length_string *Result = 0;
+    
+    FILE *FileHandle = fopen(FilePath, "rb");
 
-entire_file ReadEntireFile(const char *FileName) {
-    entire_file Result;
-    Result.Buffer = NULL;
-    Result.Size = 0;
-
-    FILE *FileHandle = fopen(FileName, "rb");
-    fseek(FileHandle, 0, SEEK_END);
-    Result.Size = ftell(FileHandle);
-    rewind(FileHandle);
-
-    Result.Buffer = malloc(Result.Size);
-    assert(Result.Buffer);
-
-    assert(fread(Result.Buffer, 1, Result.Size, FileHandle) == Result.Size);
-
-    fclose(FileHandle);
+    if (FileHandle) {
+        fseek(FileHandle, 0, SEEK_END);
+        size_t FileSize = ftell(FileHandle);
+        rewind(FileHandle);
+        
+        if (FileSize > 0) {
+            Result = lsMakeString(FileSize);
+            assert(fread(Result->Chars, 1, FileSize, FileHandle) == FileSize);
+            fclose(FileHandle);
+        }
+        else {
+            printf("Invalid file size %d for file '%s'\n", (int)FileSize, FilePath);
+        }
+    }
+    else {
+        printf("Could not read file '%s'\n", FilePath);
+    }
 
     return Result;
 }
@@ -86,14 +88,84 @@ bool IsWhiteSpaceChar(char c) {
     return c <= ' ';
 }
 
-size_t EatWhiteSpace(char **At) {
-    char *From = *At;
-    
-    while(IsWhiteSpaceChar(**At)) *At += 1;
-
-    size_t CountEaten = (size_t)(*At - From);
-    return CountEaten;
+bool IsNumericChar(char c) {
+    return c >= '0' && c <= '9';
 }
+
+bool IsLetterChar(char c) {
+    return (c >= 'A' && c <= 'Z')
+        || (c >= 'a' && c <= 'z');    
+}
+
+bool IsIdentifierStartChar(char c) {
+    return IsLetterChar(c) || (c == '_');
+}
+
+bool IsIdentifierChar(char c) {
+    return IsIdentifierStartChar(c) || IsNumericChar(c); 
+}
+
+char *GetIdentifier(char **At, length_string *Token) {
+    char *Result = NULL;
+    
+    if (IsIdentifierStartChar(**At)) {
+        Result = *At;
+
+        do {
+            lsAppendChar(Token, **At);
+            *At += 1;
+        } while (IsIdentifierChar(**At));
+        
+        lsAppendChar(Token, '\0');
+    }
+    else {
+        fprintf(stderr, "Invalid identifier. Identifiers must begin with a letter or an underscore.\n"); // TODO(jakob): bette error message
+    }
+    
+    return Result;
+}
+
+char *GetValue(char **At, length_string *Token) {
+    char *Result = NULL;
+
+    if (IsIdentifierChar(**At) || **At == ' ') {
+        Result = *At;
+        do { 
+            lsAppendChar(Token, **At);
+            *At += 1;
+        } while (IsIdentifierChar(**At) || **At == ' ');
+        
+        lsAppendChar(Token, '\0');
+    }
+
+    return Result;
+}
+
+void EatSpaces(char **At) {
+    while (**At <= ' ' && **At != '\n') *At += 1;
+}
+
+// typedef char* token_type;
+// #define DEF_TOKEN_TYPE(t) token_type t = #t;
+// DEF_TOKEN_TYPE(Token_Unknown);
+// DEF_TOKEN_TYPE(Token_MusicNote);
+// DEF_TOKEN_TYPE(Token_InstrumentName);
+// #undef DEF_TOKEN_TYPE
+
+// typedef struct token {
+//     token_type TokenType;
+//     LengthString *String;
+// } token;
+
+// typedef struct token_node {
+//     token Token;
+//     struct token_node *Next;
+// } token_node;
+
+typedef enum parse_state {
+    Parsing_Setting,
+    Parsing_Note
+} parse_state;
 
 loaded_song LoadSongFile(const char *FileName) {
     loaded_song Song;
@@ -101,7 +173,43 @@ loaded_song LoadSongFile(const char *FileName) {
     Song.BeatsPerMinute = 120;
     Song.SamplesPerSecond = 44100;
 
-    entire_file File = ReadEntireFile(FileName);
+    length_string *Sheet = FileGetContents(FileName);
+
+    char *At = Sheet->Chars;
+
+    size_t Column = 0;
+    size_t Row = 0;
+
+    char _TokenBuffer[1024];
+    length_string Token = lsMakeString(sizeof(_TokenBuffer), _TokenBuffer);
+
+    bool Parsing = true;
+    // Parse column names in the first row
+    while (Parsing && At < (Sheet->Chars + Sheet->Length)) {
+        switch (ParseState) {
+            case Parsing_Setting: {
+                EatSpaces(&At);
+                char *Ident = GetIdentifier(&At, );
+
+                EatSpaces(&At);
+                if (*At != '=') {
+                    fprintf(stderr, "Setting missing '=' (equals sign).\n");
+                }
+                ++At;
+                EatSpaces(&At);
+                GetValue(&At, Token2);
+
+                if (lsCompare(Token, "SampleRate")) {
+                    Song.SampleRate = atoi(Token2)
+                }
+
+            } break;
+
+            case Parse_
+
+    }
+    
+
 
     return Song;
 }

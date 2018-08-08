@@ -1,23 +1,27 @@
 #ifndef LENGTH_STRINGS_H
 #define LENGTH_STRINGS_H
 
+#include <assert.h>
+#include <memory.h>
+#include <stdbool.h>
+
 #define LS_SPREAD(ls) (ls Length), (ls Chars)
 
-typedef struct {
-    unsigned int AllocationSize;
-    unsigned int Length;
-    char Chars[];
+typedef struct length_string {
+    bool Dynamic;
+    size_t Length;
+    char *Chars;
 } length_string;
 
-length_string *lsMakeString(int NumBytes) {
-    size_t AllocationSize = sizeof(length_string) + NumBytes;
-    length_string *ls = malloc(AllocationSize);
-    ls->AllocationSize = AllocationSize;
-    ls->Length = NumBytes;
-    return ls;
+length_string lsMakeString(size_t Length, const char *Chars) {
+    return (length_string){
+        .dynamic = false,
+        .length = Length,
+        .chars = (char *)Chars,
+    };
 }
 
-void *lsAssignFromCharArray(length_string *ls, char Chars[], unsigned int Length) {
+void lsAssignFromCharArray(length_string *ls, char Chars[], size_t Length) {
     memcpy(ls->Chars, Chars, Length);
     ls->Length = Length;
 }
