@@ -75,30 +75,31 @@ static note_hit Lullaby[] = {
 
 int main(int ArgumentCount, char const *Arguments[])
 {
-    if (ArgumentCount <= 2) {
-        fprintf(stderr, "USAGE: music <input csv file> <output wave file>\n");
+    if (ArgumentCount <= 1) {
+        fprintf(stderr, "USAGE: music <csv song file>\n");
         return -1;
     }
 
     const char *InputSongFile = Arguments[1];
-    const char *OutputWaveFile = Arguments[2];
 
     loaded_song Song = LoadSongFile(InputSongFile);
+
+    double SecondsPerBeat = 60.0 / Song.BeatsPerMinute;
 
     int16_t *Samples = malloc(MAX_SAMPLES * sizeof(*Samples));
     size_t SampleIndex = 0;
     double TimeElapsed = 0; // in seconds
     double TimeHit = 0;
-    double TimeHitEnd = Lullaby[0].Duration*SECONDS_PER_BEAT;
+    double TimeHitEnd = Lullaby[0].Duration*SecondsPerBeat;
 
     int NoteIndex = 0;
     note_hit Hit = Lullaby[NoteIndex];
 
     double Sum;
 
-    double Fade = 5*SECONDS_PER_BEAT;
+    double Fade = 5*SecondsPerBeat;
 
-    fprintf(stderr, "Generating song, \"%s\":\n", Arguments[1]);
+    fprintf(stderr, "Generating song, \"%s\":\n", Song.OutFile);
 
     while (SampleIndex < MAX_SAMPLES && NoteIndex < sizeof(Lullaby)/sizeof(*Lullaby)) {
 
@@ -107,7 +108,7 @@ int main(int ArgumentCount, char const *Arguments[])
             NoteIndex += 1;
             Hit = Lullaby[NoteIndex];
             TimeHit = TimeElapsed;
-            TimeHitEnd = TimeHit + Hit.Duration*SECONDS_PER_BEAT;
+            TimeHitEnd = TimeHit + Hit.Duration*SecondsPerBeat;
         }
 
         Sum = 0;
@@ -120,15 +121,15 @@ int main(int ArgumentCount, char const *Arguments[])
         Samples[SampleIndex] = (int16_t)(Sum * 0x8000);
 
         SampleIndex += 1;
-        TimeElapsed = (double)SampleIndex / (double)SAMPLES_PER_SECOND;
+        TimeElapsed = (double)SampleIndex / (double)Song.SampleRate;
 
-        if (SampleIndex % SAMPLES_PER_SECOND == 0) {
-            fprintf(stderr, "\rSong length: %d seconds.", (uint64_t)(SampleIndex/SAMPLES_PER_SECOND));
+        if (SampleIndex % Song.SampleRate == 0) {
+            fprintf(stderr, "\rSong length: %d seconds.", (uint64_t)(SampleIndex/Song.SampleRate));
         }
     }
     fprintf(stderr, "\n");
 
-    SaveWaveFile(Samples, SampleIndex, OutputWaveFile, SAMPLES_PER_SECOND);
+    SaveWaveFile(Samples, SampleIndex, Song.OutFile, Song.SampleRate);
 
     return 0;
 }

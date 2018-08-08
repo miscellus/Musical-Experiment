@@ -85,6 +85,7 @@ void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
 typedef struct {
     uint32_t BeatsPerMinute;
     uint32_t SampleRate;
+    char *OutFile;
 } loaded_song;
 
 bool IsWhiteSpaceChar(char c) {
@@ -108,7 +109,7 @@ bool IsIdentifierChar(char c) {
     return IsIdentifierStartChar(c) || IsNumericChar(c); 
 }
 
-void GetIdentifier(char **At, char *Buffer, size_t BufferSize) {
+void GetSetting(char **At, char *Buffer, size_t BufferSize) {
     
     if (IsIdentifierStartChar(**At)) {
         char *From = *At;
@@ -129,18 +130,25 @@ void GetIdentifier(char **At, char *Buffer, size_t BufferSize) {
 }
 
 void GetValue(char **At, char *Buffer, size_t BufferSize) {
-    if (IsIdentifierChar(**At)) {
-        char *From = *At;
+    char *From = *At;
+    char *LastNonSpace = *At;
 
-        do *At += 1; while (IsIdentifierChar(**At));
-        
-        size_t Length = *At - From;
+    while (**At != ',' && **At != '\n') {
 
-        Length = Min(Length, BufferSize - 1);
+        if (!IsWhiteSpaceChar(**At)) {
+            LastNonSpace = *At;
+        }
 
-        memcpy(Buffer, From, Length);
-        Buffer[Length] = '\0';
+        ++*At;
     }
+
+    size_t Length = LastNonSpace + 1 - From;
+
+    Length = Min(Length, BufferSize - 1);
+
+    memcpy(Buffer, From, Length);
+    Buffer[Length] = '\0';
+
 }
 
 void EatSpaces(char **At) {
@@ -168,9 +176,21 @@ void EatSpaces(char **At) {
 loaded_song LoadSongFile(const char *FileName) {
     loaded_song Song;
 
-    Song.BeatsPerMinute = 120;
-    Song.SampleRate = 44100;
+    {
+        char FileNameBuffer[1024];
+        int OutFileNameLength = snprintf(FileNameBuffer, sizeof(FileNameBuffer), "%s.wav", FileName);
+        assert(OutFileNameLength > 0);
 
+        Song.OutFile = malloc(OutFileNameLength + 1);
+        assert(Song.OutFile);
+
+        memcpy(Song.OutFile, FileNameBuffer, OutFileNameLength + 1);
+        Song.OutFile[OutFileNameLength] = '\0';
+        
+        Song.BeatsPerMinute = 120;
+        Song.SampleRate = 44100;
+    }
+    
     char *FileContents;
     size_t FileSize;
 
@@ -189,7 +209,7 @@ loaded_song LoadSongFile(const char *FileName) {
             char ValueBuffer[128];
 
             EatSpaces(&At);
-            GetIdentifier(&At, SettingBuffer, sizeof(SettingBuffer));
+            GetSetting(&At, SettingBuffer, sizeof(SettingBuffer));
             EatSpaces(&At);
 
             if (*At != '=') {
@@ -207,6 +227,12 @@ loaded_song LoadSongFile(const char *FileName) {
             }
             else if (strcmp(SettingBuffer, "SampleRate") == 0) {
                 Song.SampleRate = atoi(ValueBuffer);
+            }
+            else if (strcmp(SettingBuffer, "OutFile") == 0) {
+                size_t Length = strlen(ValueBuffer) + 1;
+                Song.OutFile = malloc(Length);
+                assert(Song.OutFile);
+                memcpy(Song.OutFile, ValueBuffer, Length);
             }
             else {
                 fprintf(stderr, "ERROR: Undefined setting, '%s'.\n", SettingBuffer);

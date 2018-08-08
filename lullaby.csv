@@ -1,7 +1,7 @@
-BPM=120,MusicBox
+BPM=10,MusicBox
 SampleRate=48000,a4
-cells_per_beat=4,
-output_file=song.wav,
+CellsPerBeat=4,
+OutFile=song.wav,
 ,
 ,a4
 ,
