@@ -8,22 +8,12 @@
 #include "voice_functions.h"
 #include "files.h"
 
+#define MAX_SAMPLES (SAMPLES_PER_SECOND*60*60)
+
 typedef struct {
     double Frequency; // In hertz
     double Duration; // In beats
 } note_hit;
-
-static note_hit Lullaby_[] = {{00,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-    {c5,1},{c5,1},{c5,1},{c5,1},{c5,1},
-};
-
 
 static note_hit Lullaby[] = {
     {a4,1/2.},
@@ -71,18 +61,13 @@ static note_hit Lullaby[] = {
     {00,2},
 };
 
-#define MAX_SAMPLES (SAMPLES_PER_SECOND*60*60)
-
-int main(int ArgumentCount, char const *Arguments[])
-{
+int main(int ArgumentCount, char const *Arguments[]) {
     if (ArgumentCount <= 1) {
         fprintf(stderr, "USAGE: music <csv song file>\n");
         return -1;
     }
 
-    const char *InputSongFile = Arguments[1];
-
-    loaded_song Song = LoadSongFile(InputSongFile);
+    loaded_song Song = LoadSongFile(Arguments[1]);
 
     double SecondsPerBeat = 60.0 / Song.BeatsPerMinute;
 
@@ -124,7 +109,7 @@ int main(int ArgumentCount, char const *Arguments[])
         TimeElapsed = (double)SampleIndex / (double)Song.SampleRate;
 
         if (SampleIndex % Song.SampleRate == 0) {
-            fprintf(stderr, "\rSong length: %d seconds.", (uint64_t)(SampleIndex/Song.SampleRate));
+            fprintf(stderr, "\rSong length: %d seconds.", (uint32_t)(SampleIndex/Song.SampleRate));
         }
     }
     fprintf(stderr, "\n");

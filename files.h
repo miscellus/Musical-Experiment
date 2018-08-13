@@ -63,11 +63,12 @@ void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
         rewind(FileHandle);
         
         if (FileSize > 0) {
-            *Buffer = malloc(FileSize);
+            *Buffer = malloc(FileSize + 1);
             assert(Buffer);
-            *BufferSize = FileSize;
+            *BufferSize = FileSize + 1;
 
             size_t AmountRead = fread(*Buffer, 1, FileSize, FileHandle);
+            (*Buffer)[FileSize + 1] = '\0';
 
             assert(AmountRead == FileSize);
         }
@@ -85,6 +86,7 @@ void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
 typedef struct {
     uint32_t BeatsPerMinute;
     uint32_t SampleRate;
+    uint32_t CellsPerBeat;
     char *OutFile;
 } loaded_song;
 
@@ -107,6 +109,99 @@ bool IsIdentifierStartChar(char c) {
 
 bool IsIdentifierChar(char c) {
     return IsIdentifierStartChar(c) || IsNumericChar(c); 
+}
+
+static inline bool CharIn(char c, const char *Chars) {
+    while (*Chars != c) ++Chars;
+    return *Chars != '\0';
+}
+
+void EatSpaces(char **At) {
+    while (**At <= ' ' && **At != '\n') *At += 1;
+}
+
+void MakeStringCanonical(char *Scan) {
+    char *WriteTo = Scan;
+    while (*Scan) {
+        
+        if (*Scan > ' ' && *Scan != '_') {
+            if (*Scan >= 'A' && *Scan <= 'Z') {
+                *Scan += 'a'-'A';
+            }
+            *WriteTo = *Scan;
+            ++WriteTo;
+        }
+        ++Scan;
+    }
+    *WriteTo = '\0';
+}
+
+typedef struct {
+    char Chars[128];
+} cell_buffer;
+
+size_t GetCell(char **At, cell_buffer *Buffer) {
+    while ((**At <= ' ' && **At != '\n') || **At == '"') ++*At;
+
+    char *From = *At;
+    char *LastNonSpace = *At;
+
+    while (**At != ',' && **At != '\n' && **At != '\0') {
+
+        if (!IsWhiteSpaceChar(**At) && **At != '"') {
+            LastNonSpace = *At;
+        }
+
+        ++*At;
+    }
+
+    size_t Length = LastNonSpace + 1 - From;
+    Length = Min(Length, sizeof(Buffer->Chars) - 1);
+
+    memcpy(Buffer->Chars, From, Length);
+
+    Buffer->Chars[Length + 1] = '\0';
+
+    return Length;
+}
+
+#if 0
+bool GetSetting(char **At, setting_buffer *SettingBuffer) {
+    while ((**At <= ' ' && **At != '\n') || **At == '"') *At += 1;
+
+    char *From = *At;
+    char *LastNonSpace = *At;
+
+    for (int Column = 0; Column < 2; ++Column) {
+
+        char *Buffer = Column ? SettingBuffer->Value : SettingBuffer->Name;
+        size_t MaxLength = Column ? sizeof(SettingBuffer->Value) : sizeof(SettingBuffer->Name);
+        
+        while (**At != ',' && **At != '\n' && **At != '\0') {
+
+            if (!IsWhiteSpaceChar(**At) && **At != '"') {
+                LastNonSpace = *At;
+            }
+
+            ++*At;
+        }
+
+        size_t Length = LastNonSpace + 1 - From;
+        Length = Min(Length, MaxLength - 1);
+
+        memcpy(Buffer, From, Length);
+
+        Buffer[Length] = '\0';
+
+        if (Column == 0 && **At != ',') {
+            return false;
+        }
+
+        ++*At;
+        From = *At;
+    }
+
+    return true;
 }
 
 void GetSetting(char **At, char *Buffer, size_t BufferSize) {
@@ -150,10 +245,7 @@ void GetValue(char **At, char *Buffer, size_t BufferSize) {
     Buffer[Length] = '\0';
 
 }
-
-void EatSpaces(char **At) {
-    while (**At <= ' ' && **At != '\n') *At += 1;
-}
+#endif
 
 // typedef char* token_type;
 // #define DEF_TOKEN_TYPE(t) token_type t = #t;
@@ -172,6 +264,18 @@ void EatSpaces(char **At) {
 //     struct token_node *Next;
 // } token_node;
 
+void NextCell(char **At, uint32_t *Row, uint32_t *Column) {
+    switch(**At) {
+    case ',':
+        ++*Column;
+        break;
+    case '\n':
+        *Column = 0;
+        ++*Row;
+        break;
+    }
+    ++*At;
+}
 
 loaded_song LoadSongFile(const char *FileName) {
     loaded_song Song;
@@ -189,6 +293,7 @@ loaded_song LoadSongFile(const char *FileName) {
         
         Song.BeatsPerMinute = 120;
         Song.SampleRate = 44100;
+        Song.CellsPerBeat = 4;
     }
     
     char *FileContents;
@@ -198,53 +303,61 @@ loaded_song LoadSongFile(const char *FileName) {
 
     char *At = FileContents;
 
-    size_t Column = 0;
-    size_t Row = 0;
+    uint32_t Column = 0;
+    uint32_t Row = 0;
+
+    cell_buffer Setting = {0};
+    cell_buffer Value = {0};
+    cell_buffer Scratch = {0};
 
     while (At < (FileContents + FileSize)) {
 
         if (Column == 0 && *At != ',') { // Parse Settings
 
-            char SettingBuffer[128];
-            char ValueBuffer[128];
-
-            EatSpaces(&At);
-            GetSetting(&At, SettingBuffer, sizeof(SettingBuffer));
-            EatSpaces(&At);
-
-            if (*At != '=') {
-                fprintf(stderr, "ERROR: Setting missing '=' (equals sign).\n");
+            if (GetCell(&At, &Setting) == 0) {
+                NextCell(&At, &Row, &Column);
+                continue;
             }
-            ++At;
+            NextCell(&At, &Row, &Column);
+
+            if (Column != 1) fprintf(stderr, "ERROR(Row %u, Col %u): Setting, %s, missing value.\n", Row, Column, Setting.Chars);
+            else GetCell(&At, &Value);
             
-            EatSpaces(&At);
-            GetValue(&At, ValueBuffer, sizeof(ValueBuffer));
+            MakeStringCanonical(Setting.Chars);
 
-            bool InvalidSetting = false;
+            bool UnknownSetting = false;
 
-            if (strcmp(SettingBuffer, "BPM") == 0) {
-                Song.BeatsPerMinute = atoi(ValueBuffer);
+            if (strcmp(Setting.Chars, "bpm") == 0) {
+                Song.BeatsPerMinute = atoi(Value.Chars);
             }
-            else if (strcmp(SettingBuffer, "SampleRate") == 0) {
-                Song.SampleRate = atoi(ValueBuffer);
+            else if (strcmp(Setting.Chars, "sample""rate") == 0) {
+                Song.SampleRate = atoi(Value.Chars);
             }
-            else if (strcmp(SettingBuffer, "OutFile") == 0) {
-                size_t Length = strlen(ValueBuffer) + 1;
+            else if (strcmp(Setting.Chars, "cells""per""beat") == 0) {
+                Song.CellsPerBeat = atoi(Value.Chars);
+            }
+            else if (strcmp(Setting.Chars, "output""file") == 0) {
+                size_t Length = strlen(Value.Chars) + 1;
                 Song.OutFile = malloc(Length);
                 assert(Song.OutFile);
-                memcpy(Song.OutFile, ValueBuffer, Length);
+                memcpy(Song.OutFile, Value.Chars, Length);
             }
             else {
-                fprintf(stderr, "ERROR: Undefined setting, '%s'.\n", SettingBuffer);
-                InvalidSetting = true;
+                fprintf(stderr, "WARNING: Unknown setting, '%s'.\n", Setting.Chars);
+                UnknownSetting = true;
             }
 
-            if (!InvalidSetting) {
-                fprintf(stderr, "SETTING: %s=%s\n", SettingBuffer, ValueBuffer);
+            if (!UnknownSetting) {
+                fprintf(stderr, "SETTING: %s = %s\n", Setting.Chars, Value.Chars);
             }
         }
 
+        fprintf(stderr, "(R%d, C%d)\n", Row, Column);
+
         while (At < (FileContents + FileSize)) {
+            //GetCell(&At, &Scratch);
+            //printf("[%s]\n", Scratch.Chars);
+            //NextCell(&At, &Row, &Column);
             if (*At == ',') {
                 ++At;
                 ++Column;
