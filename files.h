@@ -141,12 +141,12 @@ typedef struct {
 } cell_buffer;
 
 size_t GetCell(char **At, cell_buffer *Buffer) {
-    while ((**At <= ' ' && **At != '\n') || **At == '"') ++*At;
+    while (**At && ((**At <= ' ' && **At != '\n') || **At == '"')) ++*At;
 
     char *From = *At;
     char *LastNonSpace = *At;
 
-    while (**At != ',' && **At != '\n' && **At != '\0') {
+    while (**At && **At != ',' && **At != '\n') {
 
         if (!IsWhiteSpaceChar(**At) && **At != '"') {
             LastNonSpace = *At;
@@ -160,7 +160,7 @@ size_t GetCell(char **At, cell_buffer *Buffer) {
 
     memcpy(Buffer->Chars, From, Length);
 
-    Buffer->Chars[Length + 1] = '\0';
+    Buffer->Chars[Length] = '\0';
 
     return Length;
 }
