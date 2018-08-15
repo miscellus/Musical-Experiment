@@ -1,13 +1,13 @@
 "Sheet Version",0.1.0,1,2
 BPM,91,a4,
 "Sample Rate",44100,,
-"Cells Per Beat",4,,
+"Cells Per Beat",8,,
 "Output File",Lullaby.wav,,
 "Test af Noget",1337,a4,
 ,,,
 Instrument,1,,
-Voice,"Sine Wave",,d2
-ADSR,"0 0 0 5",c5,
+Voice,"Sine Wave",,d5
+ADSR,"0 0 0 5",c5,G6
 ,,,
 Instrument,2,,
 Voice,"Square Wave",,

@@ -69,43 +69,97 @@ int main(int ArgumentCount, char const *Arguments[]) {
 
     loaded_song Song = LoadSongFile(Arguments[1]);
 
-    double SecondsPerBeat = 60.0 / Song.BeatsPerMinute;
+    printf("Song = {\n"
+    "    BeatsPerMinute = %d\n"
+    "    SampleRate = %d\n"
+    "    CellsPerBeat = %d\n"
+    "    OutFile = %s\n"
+    "    NumChannels = %d\n"
+    "    Channels = {...}\n"
+    "}\n",
+        Song.BeatsPerMinute,
+        Song.SampleRate,
+        Song.CellsPerBeat,
+        Song.OutFile,
+        Song.NumChannels);
+
+    double SecondsPerDivision = 60.0 / (Song.BeatsPerMinute * Song.CellsPerBeat);
 
     int16_t *Samples = malloc(MAX_SAMPLES * sizeof(*Samples));
     size_t SampleIndex = 0;
     double TimeElapsed = 0; // in seconds
     double TimeHit = 0;
-    double TimeHitEnd = Lullaby[0].Duration*SecondsPerBeat;
+    double TimeHitEnd = Lullaby[0].Duration*SecondsPerDivision;
 
     int NoteIndex = 0;
     note_hit Hit = Lullaby[NoteIndex];
 
     double Sum;
 
-    double Fade = 5*SecondsPerBeat;
+    double Fade = 5*SecondsPerDivision;
 
     fprintf(stderr, "Generating song, \"%s\":\n", Song.OutFile);
 
-    while (SampleIndex < MAX_SAMPLES && NoteIndex < sizeof(Lullaby)/sizeof(*Lullaby)) {
+    for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
+        printf("[Channel %d]\n", ChannelID);
 
-        // Advance song if next note reached
-        if (TimeElapsed >= TimeHitEnd) {
-            NoteIndex += 1;
-            Hit = Lullaby[NoteIndex];
-            TimeHit = TimeElapsed;
-            TimeHitEnd = TimeHit + Hit.Duration*SecondsPerBeat;
-        }
+        song_event *Ev = Song.Channels[ChannelID].FirstEvent;
+        while (Ev) {
+            printf("C%d - song_event {\n"
+                "    EventType = %d;\n"
+                "    InstrumentID = %d;\n"
+                "    RowTime = %d;\n"
+                "    Frequency = %f;\n"
+                "}\n",
+                ChannelID,
+                Ev->EventType,
+                Ev->InstrumentID,
+                Ev->RowTime, 
+                Ev->Frequency
+            );
+            Ev = Ev->Next;
+        } 
+
+    }
+
+    song_event *Ev[sizeof(Song.Channels)/sizeof(song_event)];
+    for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
+        Ev[ChannelID] = Song.Channels[ChannelID].FirstEvent;
+    }
+
+    while (SampleIndex < Song.SampleRate*25) {
 
         Sum = 0;
-        Sum += TriangleWave(TimeElapsed * Hit.Frequency);
 
-        Sum *= AMPLITUDE * pow((1 - Min(Fade, TimeElapsed-TimeHit)/Fade),10);
+        // Advance song if next note reached
+        for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
+
+            while (Ev[ChannelID]->Next && Ev[ChannelID]->Next->RowTime * SecondsPerDivision <= TimeElapsed) {
+                Ev[ChannelID] = Ev[ChannelID]->Next;
+            }
+
+            song_event E = *Ev[ChannelID];
+
+            double TT = AMPLITUDE * pow((1 - Clamp(TimeElapsed - (E.RowTime*SecondsPerDivision), 0, Fade)/Fade),10);
+
+            Sum += TT * TriangleWave(TimeElapsed * E.Frequency);
+        }
+
+        // if (TimeElapsed >= TimeHitEnd) {
+        //     NoteIndex += 1;
+        //     Hit = Lullaby[NoteIndex];
+        //     TimeHit = TimeElapsed;
+        //     TimeHitEnd = TimeHit + Hit.Duration*SecondsPerDivision;
+        // }
+
+        // Sum += TriangleWave(TimeElapsed * Hit.Frequency);
+
+        // Sum *= AMPLITUDE * pow((1 - Min(Fade, TimeElapsed-TimeHit)/Fade),10);
 
         Sum = Clamp(Sum, -1, 1);
 
-        Samples[SampleIndex] = (int16_t)(Sum * 0x8000);
+        Samples[SampleIndex++] = (int16_t)(Sum * 0x8000);
 
-        SampleIndex += 1;
         TimeElapsed = (double)SampleIndex / (double)Song.SampleRate;
 
         if (SampleIndex % Song.SampleRate == 0) {

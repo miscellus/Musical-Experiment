@@ -88,20 +88,26 @@ typedef enum {
     EventType_Release = 2,
 } song_event_type;
 
-typedef struct {
+typedef struct song_event{
     song_event_type EventType:16;
     uint16_t InstrumentID;
     uint16_t RowTime;
-    uint16_t Note; // really 2 chars like "c4"
+    double Frequency;
+    struct song_event *Next;
 } song_event;
+
+typedef struct {
+    song_event *FirstEvent;
+    song_event *LastEvent;
+} song_channel;
 
 typedef struct {
     uint32_t BeatsPerMinute;
     uint32_t SampleRate;
     uint32_t CellsPerBeat;
     char *OutFile;
-    song_event *Events;
-    size_t EventsLength;
+    uint32_t NumChannels;
+    song_channel Channels[16];
 } loaded_song;
 
 bool IsWhiteSpaceChar(char c) {
@@ -222,10 +228,8 @@ void NextCell(char **At, uint32_t *Row, uint32_t *Column) {
 }
 
 loaded_song LoadSongFile(const char *FileName) {
-    loaded_song Song;
-    Song.EventsLength = 0;
-    Song.Events = malloc(sizeof(Song.Events[0])*1000);
-    assert(Song.Events);
+
+    loaded_song Song = {0};
 
     {
         char FileNameBuffer[1024];
@@ -240,7 +244,7 @@ loaded_song LoadSongFile(const char *FileName) {
         
         Song.BeatsPerMinute = 120;
         Song.SampleRate = 44100;
-        Song.CellsPerBeat = 4;
+        Song.CellsPerBeat = 1;
     }
     
     char *FileContents;
@@ -253,7 +257,7 @@ loaded_song LoadSongFile(const char *FileName) {
     uint32_t Column = 0;
     uint32_t Row = 0;
 
-    uint8_t ColumnToInstrument[256] = {0};
+    uint8_t ChannelToInstrument[256] = {0};
 
     cell_buffer Setting = {0};
     cell_buffer Value = {0};
@@ -312,14 +316,26 @@ loaded_song LoadSongFile(const char *FileName) {
         else if (Row > 0) {
 
             cell_buffer Cell;
-            song_event Ev = {0};
+            song_event *Ev = malloc(sizeof(*Ev));
+            *Ev = (song_event){0};
 
             if (GetCell(&At, &Cell) > 0) {
-                Ev.EventType = EventType_Hit;
-                Ev.InstrumentID = ColumnToInstrument[Column - 2];
-                Ev.RowTime = Row - 1;
-                Ev.Note = (uint16_t)Cell.Chars[0] << 8 | Cell.Chars[1];
-                printf("NOTE/%d( %x @ %d )\n", Ev.InstrumentID, Ev.Note, Ev.RowTime);
+                size_t Channel = Column - 2;
+                assert(Channel < 16);
+
+                Ev->EventType = EventType_Hit;
+                Ev->InstrumentID = ChannelToInstrument[Channel];
+                Ev->RowTime = Row - 1;
+                Ev->Frequency = NoteStringToFrequency(Cell.Chars);
+
+                if (NULL == Song.Channels[Channel].FirstEvent) {
+                    Song.Channels[Channel].FirstEvent = Ev;
+                    Song.Channels[Channel].LastEvent = Ev;
+                }
+                else {
+                    Song.Channels[Channel].LastEvent->Next = Ev;
+                    Song.Channels[Channel].LastEvent = Ev;
+                }
             }
 
             NextCell(&At, &Row, &Column);
@@ -329,9 +345,11 @@ loaded_song LoadSongFile(const char *FileName) {
         /************************/
         else if (Row == 0) {
             cell_buffer InstrumentID;
+
             if (GetCell(&At, &InstrumentID) > 0) {
-                printf("Adding InstrumentID %d\n", atoi(InstrumentID.Chars));
-                ColumnToInstrument[Column - 2] = atoi(InstrumentID.Chars);
+                size_t Channel = Column - 2;
+                ChannelToInstrument[Channel] = atoi(InstrumentID.Chars);
+                ++Song.NumChannels;
             }
             NextCell(&At, &Row, &Column);
         }
@@ -339,7 +357,7 @@ loaded_song LoadSongFile(const char *FileName) {
             assert(false);
         }
     }
-
+    
     return Song;
 }
 

@@ -20,7 +20,7 @@
 #define PI 3.141592653589793
 #define TAU 6.283185307179586
 
-/* Step sizes */
+/* Ste\ sizes */
 #define s57 0.03716272234383503  //2**(-57/12)
 #define s56 0.03937253280921478  //2**(-56/12)
 #define s55 0.04171374544281358  //2**(-55/12)
@@ -240,5 +240,140 @@ Note Frequency in hertz (Wavelength in centimeters)
 #define a8 (S48 * 440)
 #define A8 (S49 * 440)
 #define b8 (S50 * 440)
+
+#include <assert.h>
+double NoteStringToFrequency(char *NoteString) {
+    char Key = NoteString[0];
+    char Octave = NoteString[1];
+
+    if (Octave == '0') {
+        if (Key == 'c') return c0;
+        if (Key == 'C') return C0;
+        if (Key == 'd') return d0;
+        if (Key == 'D') return D0;
+        if (Key == 'e') return e0;
+        if (Key == 'f') return f0;
+        if (Key == 'F') return F0;
+        if (Key == 'g') return g0;
+        if (Key == 'G') return G0;
+        if (Key == 'a') return a0;
+        if (Key == 'A') return A0;
+        if (Key == 'b') return b0;
+    }
+    if (Octave == '1') {        
+        if (Key == 'c') return c1;
+        if (Key == 'C') return C1;
+        if (Key == 'd') return d1;
+        if (Key == 'D') return D1;
+        if (Key == 'e') return e1;
+        if (Key == 'f') return f1;
+        if (Key == 'F') return F1;
+        if (Key == 'g') return g1;
+        if (Key == 'G') return G1;
+        if (Key == 'a') return a1;
+        if (Key == 'A') return A1;
+        if (Key == 'b') return b1;
+    }
+    if (Octave == '2') {
+        if (Key == 'c') return c2;
+        if (Key == 'C') return C2;
+        if (Key == 'd') return d2;
+        if (Key == 'D') return D2;
+        if (Key == 'e') return e2;
+        if (Key == 'f') return f2;
+        if (Key == 'F') return F2;
+        if (Key == 'g') return g2;
+        if (Key == 'G') return G2;
+        if (Key == 'a') return a2;
+        if (Key == 'A') return A2;
+        if (Key == 'b') return b2;
+    }
+    if (Octave == '3') {
+        if (Key == 'c') return c3;
+        if (Key == 'C') return C3;
+        if (Key == 'd') return d3;
+        if (Key == 'D') return D3;
+        if (Key == 'e') return e3;
+        if (Key == 'f') return f3;
+        if (Key == 'F') return F3;
+        if (Key == 'g') return g3;
+        if (Key == 'G') return G3;
+        if (Key == 'a') return a3;
+        if (Key == 'A') return A3;
+        if (Key == 'b') return b3;
+    }
+    if (Octave == '4') {
+        if (Key == 'c') return c4;
+        if (Key == 'C') return C4;
+        if (Key == 'd') return d4;
+        if (Key == 'D') return D4;
+        if (Key == 'e') return e4;
+        if (Key == 'f') return f4;
+        if (Key == 'F') return F4;
+        if (Key == 'g') return g4;
+        if (Key == 'G') return G4;
+        if (Key == 'a') return a4;
+        if (Key == 'A') return A4;
+        if (Key == 'b') return b4;
+    }
+    if (Octave == '5') {
+        if (Key == 'c') return c5;
+        if (Key == 'C') return C5;
+        if (Key == 'd') return d5;
+        if (Key == 'D') return D5;
+        if (Key == 'e') return e5;
+        if (Key == 'f') return f5;
+        if (Key == 'F') return F5;
+        if (Key == 'g') return g5;
+        if (Key == 'G') return G5;
+        if (Key == 'a') return a5;
+        if (Key == 'A') return A5;
+        if (Key == 'b') return b5;
+    }
+    if (Octave == '6') {
+        if (Key == 'c') return c6;
+        if (Key == 'C') return C6;
+        if (Key == 'd') return d6;
+        if (Key == 'D') return D6;
+        if (Key == 'e') return e6;
+        if (Key == 'f') return f6;
+        if (Key == 'F') return F6;
+        if (Key == 'g') return g6;
+        if (Key == 'G') return G6;
+        if (Key == 'a') return a6;
+        if (Key == 'A') return A6;
+        if (Key == 'b') return b6;
+    }
+    if (Octave == '7') {
+        if (Key == 'c') return c7;
+        if (Key == 'C') return C7;
+        if (Key == 'd') return d7;
+        if (Key == 'D') return D7;
+        if (Key == 'e') return e7;
+        if (Key == 'f') return f7;
+        if (Key == 'F') return F7;
+        if (Key == 'g') return g7;
+        if (Key == 'G') return G7;
+        if (Key == 'a') return a7;
+        if (Key == 'A') return A7;
+        if (Key == 'b') return b7;
+    }
+    if (Octave == '8') {
+        if (Key == 'c') return c8;
+        if (Key == 'C') return C8;
+        if (Key == 'd') return d8;
+        if (Key == 'D') return D8;
+        if (Key == 'e') return e8;
+        if (Key == 'f') return f8;
+        if (Key == 'F') return F8;
+        if (Key == 'g') return g8;
+        if (Key == 'G') return G8;
+        if (Key == 'a') return a8;
+        if (Key == 'A') return A8;
+        if (Key == 'b') return b8;
+    }
+
+    return 0;
+}
 
 #endif

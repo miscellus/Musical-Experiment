@@ -4,8 +4,8 @@ gcc -g -std=c99 -Wall -pedantic -o music music.c -lm
 
 
 if [[ $2 = "run" ]]; then
-    ./music lullaby.csv
-    cvlc --no-loop Lullaby.wav
+    ./music test.csv
+    cvlc --no-loop test.csv.wav
 fi
 
 bash -c "read line"
