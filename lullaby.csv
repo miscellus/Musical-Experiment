@@ -6,7 +6,7 @@ BPM,91,a4,
 "Test af Noget",1337,a4,
 ,,,
 Instrument,1,,
-Voice,"Sine Wave",,
+Voice,"Sine Wave",,d2
 ADSR,"0 0 0 5",c5,
 ,,,
 Instrument,2,,

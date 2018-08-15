@@ -91,7 +91,8 @@ typedef enum {
 typedef struct {
     song_event_type EventType:16;
     uint16_t InstrumentID;
-    double Frequency;
+    uint16_t RowTime;
+    uint16_t Note; // really 2 chars like "c4"
 } song_event;
 
 typedef struct {
@@ -222,6 +223,9 @@ void NextCell(char **At, uint32_t *Row, uint32_t *Column) {
 
 loaded_song LoadSongFile(const char *FileName) {
     loaded_song Song;
+    Song.EventsLength = 0;
+    Song.Events = malloc(sizeof(Song.Events[0])*1000);
+    assert(Song.Events);
 
     {
         char FileNameBuffer[1024];
@@ -249,12 +253,17 @@ loaded_song LoadSongFile(const char *FileName) {
     uint32_t Column = 0;
     uint32_t Row = 0;
 
+    uint8_t ColumnToInstrument[256] = {0};
+
     cell_buffer Setting = {0};
     cell_buffer Value = {0};
 
     while (At < (FileContents + FileSize)) {
 
-        if (Column == 0) { // Parse Settings
+        /******************/
+        /* Parse Settings */
+        /******************/
+        if (Column == 0) {
 
             size_t SettingLength = GetCell(&At, &Setting);
             NextCell(&At, &Row, &Column);
@@ -297,27 +306,37 @@ loaded_song LoadSongFile(const char *FileName) {
                 fprintf(stderr, "[OK] %s = %s;\n", Setting.Chars, Value.Chars);
             }
         }
+        /***************/
+        /* Parse Notes */
+        /***************/
+        else if (Row > 0) {
 
-        // fprintf(stderr, "(R%d, C%d)\n", Row, Column);
+            cell_buffer Cell;
+            song_event Ev = {0};
 
-
-        while (At < (FileContents + FileSize)) {
-            //GetCell(&At, &Scratch);
-            //printf("[%s]\n", Scratch.Chars);
-            //NextCell(&At, &Row, &Column);
-            if (*At == ',') {
-                ++At;
-                ++Column;
-                break;
-            }
-            else if (*At == '\n' ) {
-                ++At;
-                Column = 0;
-                ++Row;
-                break;
+            if (GetCell(&At, &Cell) > 0) {
+                Ev.EventType = EventType_Hit;
+                Ev.InstrumentID = ColumnToInstrument[Column - 2];
+                Ev.RowTime = Row - 1;
+                Ev.Note = (uint16_t)Cell.Chars[0] << 8 | Cell.Chars[1];
+                printf("NOTE/%d( %x @ %d )\n", Ev.InstrumentID, Ev.Note, Ev.RowTime);
             }
 
-            ++At;
+            NextCell(&At, &Row, &Column);
+        }
+        /************************/
+        /* Parse Instrument IDs */
+        /************************/
+        else if (Row == 0) {
+            cell_buffer InstrumentID;
+            if (GetCell(&At, &InstrumentID) > 0) {
+                printf("Adding InstrumentID %d\n", atoi(InstrumentID.Chars));
+                ColumnToInstrument[Column - 2] = atoi(InstrumentID.Chars);
+            }
+            NextCell(&At, &Row, &Column);
+        }
+        else {
+            assert(false);
         }
     }
 
