@@ -289,12 +289,12 @@ loaded_song LoadSongFile(const char *FileName) {
                 memcpy(Song.OutFile, Value.Chars, Length);
             }
             else {
-                fprintf(stderr, "UNKNOWN SETTING: \"%s = %s\"\n", Setting.Chars, Value.Chars);
+                fprintf(stderr, "[  ] %s = %s;\n", Setting.Chars, Value.Chars);
                 UnknownSetting = true;
             }
 
             if (!UnknownSetting) {
-                fprintf(stderr, "SETTING: \"%s = %s\"\n", Setting.Chars, Value.Chars);
+                fprintf(stderr, "[OK] %s = %s;\n", Setting.Chars, Value.Chars);
             }
         }
 
