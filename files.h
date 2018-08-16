@@ -104,7 +104,7 @@ typedef struct {
 typedef struct {
     uint32_t BeatsPerMinute;
     uint32_t SampleRate;
-    uint32_t CellsPerBeat;
+    uint32_t RowsPerBeat;
     char *OutFile;
     uint32_t NumChannels;
     song_channel Channels[16];
@@ -244,7 +244,7 @@ loaded_song LoadSongFile(const char *FileName) {
         
         Song.BeatsPerMinute = 120;
         Song.SampleRate = 44100;
-        Song.CellsPerBeat = 1;
+        Song.RowsPerBeat = 1;
     }
     
     char *FileContents;
@@ -289,8 +289,8 @@ loaded_song LoadSongFile(const char *FileName) {
             else if (CompareCanonical(Setting.Chars, "sample""rate")) {
                 Song.SampleRate = atoi(Value.Chars);
             }
-            else if (CompareCanonical(Setting.Chars, "cells""per""beat")) {
-                Song.CellsPerBeat = atoi(Value.Chars);
+            else if (CompareCanonical(Setting.Chars, "rows""per""beat")) {
+                Song.RowsPerBeat = atoi(Value.Chars);
             }
             else if (CompareCanonical(Setting.Chars, "instrument")) {
                 // TODO
@@ -302,12 +302,12 @@ loaded_song LoadSongFile(const char *FileName) {
                 memcpy(Song.OutFile, Value.Chars, Length);
             }
             else {
-                fprintf(stderr, "[  ] %s = %s;\n", Setting.Chars, Value.Chars);
+                fprintf(stderr, "Ignored unknown setting, \"%s = %s\"\n", Setting.Chars, Value.Chars);
                 UnknownSetting = true;
             }
 
             if (!UnknownSetting) {
-                fprintf(stderr, "[OK] %s = %s;\n", Setting.Chars, Value.Chars);
+                fprintf(stderr, "SET: %s = %s;\n", Setting.Chars, Value.Chars);
             }
         }
         /***************/

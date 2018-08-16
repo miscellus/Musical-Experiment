@@ -10,56 +10,16 @@
 
 #define MAX_SAMPLES (SAMPLES_PER_SECOND*60*60)
 
+#define ArraySize(A) (sizeof(A)/sizeof(*A))
+
+#define RowToSeconds(RowTime) ((RowTime)*SecondsPerDivision)
+
 typedef struct {
     double Frequency; // In hertz
     double Duration; // In beats
 } note_hit;
 
-static note_hit Lullaby[] = {
-    {a4,1/2.},
-    {a4,1/2.},
-    {c5,2},
-    {a4,1/2.},
-    {a4,1/2.},
-    {c5,2},
-    {a4,1/2.},
-    {c5,1/2.},
-    {f5,1},
-    {e5,3/2.},
-    {d5,1/2.},
-    {d5,1},
-    {c5,1},
-    {g4,1/2.},
-    {a4,1/2.},
-    {A4,3/2.},
-    {g4,1/2.},
-    {g4,1/2.},
-    {a4,1/2.},
-    {A4,3/2.},
-    {g4,1/2.},
-    {g4,1/2.},
-    {A4,1/2.},
-    {e5,1/2.},
-    {d5,1/2.},
-    {c5,1},
-    {e5,1},
-    {f5,2},
-    {f4,1/2.},
-    {f4,1/2.},
-    {f5,2},
-    {d5,1/2.},
-    {A4,1/2.},
-    {c5,2},
-    {a4,1/2.},
-    {f4,1/2.},
-    {A4,7./24.},
-    {c5,1./3.},
-    {A4,3./8.},
-    {a4,1},
-    {g4,1},
-    {f4,5/2.},
-    {00,2},
-};
+static note_hit Lullaby[] = {{a4,1/2.}, {a4,1/2.}, {c5,2}, {a4,1/2.}, {a4,1/2.}, {c5,2}, {a4,1/2.}, {c5,1/2.}, {f5,1}, {e5,3/2.}, {d5,1/2.}, {d5,1}, {c5,1}, {g4,1/2.}, {a4,1/2.}, {A4,3/2.}, {g4,1/2.}, {g4,1/2.}, {a4,1/2.}, {A4,3/2.}, {g4,1/2.}, {g4,1/2.}, {A4,1/2.}, {e5,1/2.}, {d5,1/2.}, {c5,1}, {e5,1}, {f5,2}, {f4,1/2.}, {f4,1/2.}, {f5,2}, {d5,1/2.}, {A4,1/2.}, {c5,2}, {a4,1/2.}, {f4,1/2.}, {A4,7./24.}, {c5,1./3.}, {A4,3./8.}, {a4,1}, {g4,1}, {f4,5/2.}, {00,2}, };
 
 int main(int ArgumentCount, char const *Arguments[]) {
     if (ArgumentCount <= 1) {
@@ -69,21 +29,21 @@ int main(int ArgumentCount, char const *Arguments[]) {
 
     loaded_song Song = LoadSongFile(Arguments[1]);
 
-    printf("Song = {\n"
-    "    BeatsPerMinute = %d\n"
-    "    SampleRate = %d\n"
-    "    CellsPerBeat = %d\n"
-    "    OutFile = %s\n"
-    "    NumChannels = %d\n"
-    "    Channels = {...}\n"
-    "}\n",
-        Song.BeatsPerMinute,
-        Song.SampleRate,
-        Song.CellsPerBeat,
-        Song.OutFile,
-        Song.NumChannels);
+    printf( "Song = {\n"
+            "    BeatsPerMinute = %d\n"
+            "    SampleRate = %d\n"
+            "    RowsPerBeat = %d\n"
+            "    OutFile = %s\n"
+            "    NumChannels = %d\n"
+            "    Channels = {...}\n"
+            "}\n",
+            Song.BeatsPerMinute,
+            Song.SampleRate,
+            Song.RowsPerBeat,
+            Song.OutFile,
+            Song.NumChannels);
 
-    double SecondsPerDivision = 60.0 / (Song.BeatsPerMinute * Song.CellsPerBeat);
+    double SecondsPerDivision = 60.0 / (Song.BeatsPerMinute * Song.RowsPerBeat);
 
     int16_t *Samples = malloc(MAX_SAMPLES * sizeof(*Samples));
     size_t SampleIndex = 0;
@@ -100,6 +60,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
 
     fprintf(stderr, "Generating song, \"%s\":\n", Song.OutFile);
 
+#if 0
     for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
         printf("[Channel %d]\n", ChannelID);
 
@@ -121,8 +82,9 @@ int main(int ArgumentCount, char const *Arguments[]) {
         } 
 
     }
+#endif
 
-    song_event *Ev[sizeof(Song.Channels)/sizeof(song_event)];
+    song_event *Ev[ArraySize(Song.Channels)];
     for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
         Ev[ChannelID] = Song.Channels[ChannelID].FirstEvent;
     }
@@ -134,15 +96,23 @@ int main(int ArgumentCount, char const *Arguments[]) {
         // Advance song if next note reached
         for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
 
-            while (Ev[ChannelID]->Next && Ev[ChannelID]->Next->RowTime * SecondsPerDivision <= TimeElapsed) {
-                Ev[ChannelID] = Ev[ChannelID]->Next;
+            song_event *E = Ev[ChannelID];
+
+            while (E->Next && TimeElapsed > RowToSeconds(E->Next->RowTime)) {
+                E = E->Next;
             }
 
-            song_event E = *Ev[ChannelID];
+            double TimeSinceLastNote = TimeElapsed - RowToSeconds(E->RowTime);
+            
+            if (TimeSinceLastNote >= 0) {
+                if (TimeSinceLastNote < 0) {
+                    printf("TE(%f) TSLN(%f) RT(%d) SPD(%f)\n", TimeElapsed, TimeSinceLastNote, E->RowTime, SecondsPerDivision);
+                }
 
-            double TT = AMPLITUDE * pow((1 - Clamp(TimeElapsed - (E.RowTime*SecondsPerDivision), 0, Fade)/Fade),10);
+                double TT = AMPLITUDE * pow((1 - Min(TimeSinceLastNote/Fade, 1)),2);
 
-            Sum += TT * TriangleWave(TimeElapsed * E.Frequency);
+                Sum += TT * TriangleWave(TimeElapsed * E->Frequency);
+            }
         }
 
         // if (TimeElapsed >= TimeHitEnd) {
