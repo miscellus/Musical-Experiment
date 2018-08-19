@@ -28,4 +28,13 @@ static double SquareWave(double v) {
     return v;
 }
 
+static double SawWave(double v) {
+    v += 0.5;
+    v -= (double)(int64_t)v;
+    v *= 2;
+    v -= 1;
+
+    return v;
+}
+
 #endif

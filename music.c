@@ -46,7 +46,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
 
     double Sum;
 
-    double Fade = 0.5;
+    double Fade = 3;
 
     fprintf(stderr, "Generating song, \"%s\":\n", Song.OutFile);
 
@@ -97,7 +97,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
             if (TimeSinceLastNote >= 0) {
                 double TT = Song.Amplitude * pow((1 - Min(TimeSinceLastNote/Fade, 1)),2);
 
-                Sum += TT * TriangleWave(TimeElapsed * E->Frequency);
+                Sum += TT * sin(TAU * TimeElapsed * E->Frequency);
             }
         }
 
