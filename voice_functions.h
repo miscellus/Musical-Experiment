@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+static double SineWave(double v) {
+    return sin(TAU * v);
+}
+
 static double TriangleWave(double v) {
     v -= (double)(int64_t)v;
 

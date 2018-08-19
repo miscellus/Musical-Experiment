@@ -8,19 +8,19 @@
 #include "voice_functions.h"
 #include "files.h"
 
-#define MAX_SAMPLES (SAMPLES_PER_SECOND*60*60)
-
-#define ArraySize(A) (sizeof(A)/sizeof(*A))
-
-#define RowToSeconds(RowTime) ((RowTime)*SecondsPerRow)
-
 int main(int ArgumentCount, char const *Arguments[]) {
+    (void)SineWave;
+    (void)TriangleWave;
+    (void)SquareWave;
+    (void)SawWave;
+
     if (ArgumentCount != 2) {
         fprintf(stderr, "USAGE: music <csv song file>\n");
         return -1;
     }
 
-    loaded_song Song = LoadSongFile(Arguments[1]);
+    loaded_song Song = {0};
+    LoadSongFile(Arguments[1], &Song);
 
     printf( "Song = {\n"
             "    BeatsPerMinute = %d\n"
@@ -36,8 +36,6 @@ int main(int ArgumentCount, char const *Arguments[]) {
             Song.OutFile,
             Song.NumChannels);
 
-    double SecondsPerRow = 60.0 / (Song.BeatsPerMinute * Song.RowsPerBeat);
-
     size_t MaxSamples = Song.SampleRate * 60 * 60;
 
     int16_t *Samples = malloc(MaxSamples * sizeof(*Samples));
@@ -46,61 +44,44 @@ int main(int ArgumentCount, char const *Arguments[]) {
 
     double Sum;
 
-    double Fade = 3;
-
     fprintf(stderr, "Generating song, \"%s\":\n", Song.OutFile);
 
-#if 0
-    for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
-        printf("[Channel %d]\n", ChannelID);
-
-        song_event *Ev = Song.Channels[ChannelID].FirstEvent;
-        while (Ev) {
-            printf("C%d - song_event {\n"
-                "    EventType = %d;\n"
-                "    InstrumentID = %d;\n"
-                "    RowTime = %d;\n"
-                "    Frequency = %f;\n"
-                "}\n",
-                ChannelID,
-                Ev->EventType,
-                Ev->InstrumentID,
-                Ev->RowTime, 
-                Ev->Frequency
-            );
-            Ev = Ev->Next;
-        } 
-
-    }
-#endif
-
     song_event *Ev[ArraySize(Song.Channels)];
-    for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
-        Ev[ChannelID] = Song.Channels[ChannelID].FirstEvent;
+    for (int Channel = 0; Channel < Song.NumChannels; ++Channel) {
+        Ev[Channel] = Song.Channels[Channel].FirstEvent;
     }
 
-    while (SampleIndex < Song.SampleRate*25) {
+    while (TimeElapsed < Song.Duration) {
 
         Sum = 0;
 
         // Advance song if next note reached
-        for (int ChannelID = 0; ChannelID < Song.NumChannels; ++ChannelID) {
+        for (int Channel = 0; Channel < Song.NumChannels; ++Channel) {
 
-            song_event *E = Ev[ChannelID];
+            song_event *E = Ev[Channel];
+            instrument I = InstrumentForChannel(&Song, Channel);
 
-            while (E->Next && TimeElapsed > RowToSeconds(E->Next->RowTime)) {
+            while (E->Next && TimeElapsed > Song.SecondsPerRow*E->Next->Row) {
                 E = E->Next;
             }
 
-            double TimeSinceLastNote = TimeElapsed - RowToSeconds(E->RowTime);
+            double TimeSinceLastNote = TimeElapsed - Song.SecondsPerRow*E->Row;
             
             if (TimeSinceLastNote >= 0) {
-                double TT = Song.Amplitude * pow((1 - Min(TimeSinceLastNote/Fade, 1)),2);
 
-                Sum += TT * sin(TAU * TimeElapsed * E->Frequency);
+                double Amplitude;
+                Amplitude = 1 - Min(TimeSinceLastNote/I.Release, 1);
+
+                Sum += Amplitude * (
+                    + 1.0  * I.VoiceFunction(TimeElapsed * E->Frequency)
+                    + 0.2  * I.VoiceFunction(2 * TimeElapsed * E->Frequency)
+                    + 0.1  * I.VoiceFunction(3 * TimeElapsed * E->Frequency)
+                    + 0.05 * I.VoiceFunction(4 * TimeElapsed * E->Frequency)
+                );
             }
         }
 
+        Sum *= Song.MasterVolume;
         Sum = Clamp(Sum, -1, 1);
 
         Samples[SampleIndex++] = (int16_t)(Sum * 0x8000);

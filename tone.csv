@@ -1,16 +1,16 @@
-"Sheet Version",0.1.0,1
-BPM,91,a4
+"Sheet Version",0.1.0,0
+BPM,190,d4
 "Sample Rate",44100,
-"Rows Per Beat",8,
+"Rows Per Beat",4,
 "Concert Pitch",440,
-Amplitude,1,
+"Master Volume",0.7,
 ,,
-Instrument,1,
-Voice,"Sine Wave",
-Attack,,
-Decay,,
-Sustain,,
-Release,,
-,,
+Instrument,0,
+Voice,Sine,
+"Amplitude At","0 0",D4
+"Amplitude At","0.01 1",
+"Amplitude At","1.8 0",
+Release,1.8,
+,,A3
 overtone,"2 0.1",
 overtone,"7 0.01",

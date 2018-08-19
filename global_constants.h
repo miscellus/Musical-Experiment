@@ -1,22 +1,6 @@
 #ifndef GLOBAL_CONSTANTS_H
 #define GLOBAL_CONSTANTS_H
 
-// #ifndef SAMPLES_PER_SECOND
-// #define SAMPLES_PER_SECOND 8000
-// #endif
-
-// #ifndef AMPLITUDE
-// #define AMPLITUDE 0.3
-// #endif
-
-// #ifndef BEATS_PER_MINUTE
-// #define BEATS_PER_MINUTE 100
-// #endif
-
-// #define BEATS_PER_SECOND (BEATS_PER_MINUTE/60.0)
-
-// #define SECONDS_PER_BEAT (60.0/BEATS_PER_MINUTE)
-
 #define PI 3.141592653589793
 #define TAU 6.283185307179586
 

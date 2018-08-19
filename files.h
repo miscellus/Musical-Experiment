@@ -1,6 +1,7 @@
 #ifndef FILES_H
 #define FILES_H
 
+#include "voice_functions.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -82,31 +83,64 @@ void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
     fclose(FileHandle);
 }
 
+typedef uint16_t instrument_id;
+typedef uint16_t channel_id;
+
 typedef struct song_event {
-    uint16_t InstrumentID;
-    uint16_t RowTime;
+    uint16_t Row;
     double Frequency;
     struct song_event *Next;
 } song_event;
 
 typedef struct {
+    instrument_id InstrumentID;
     song_event *FirstEvent;
     song_event *LastEvent;
 } song_channel;
 
 typedef struct {
+    double FrequencyFactor;
+    double Amplitude; // NOTE(jakob): in range 0-1
+} overtone;
+
+typedef double (*voice_function)(double);
+
+typedef struct {
+    double Time;
+    double Amplitude;
+} amplitude_point;
+
+typedef struct {
+    voice_function VoiceFunction;
+    uint8_t OvertoneCount;
+    overtone Overtones[8];
+    amplitude_point AmplitudeEnvolope[8];
+    double Release;
+} instrument;
+
+typedef struct {
+    char *OutFile;
+    double Duration; // In seconds
     uint32_t BeatsPerMinute;
     uint32_t SampleRate;
     uint32_t RowsPerBeat;
-    char *OutFile;
+    double MasterVolume;
     uint32_t NumChannels;
-    double Amplitude;
-    song_channel Channels[16];
+    double SecondsPerRow;
+    song_channel Channels[32];
+    instrument Instruments[16];
 } loaded_song;
 
 typedef struct {
     char Chars[128];
 } cell_buffer;
+
+instrument InstrumentForChannel(loaded_song *Song, channel_id ChannelID) {
+    assert(ChannelID < Song->NumChannels);
+    instrument_id InstrumentID = Song->Channels[ChannelID].InstrumentID;
+    assert(InstrumentID < ArraySize(Song->Instruments));
+    return Song->Instruments[InstrumentID];
+}
 
 static inline bool IsWhiteSpaceChar(char c) {
     return c <= ' ';
@@ -213,25 +247,30 @@ void NextCell(char **At, uint32_t *Row, uint32_t *Column) {
     }
 }
 
-loaded_song LoadSongFile(const char *FileName) {
+void LoadSongFile(const char *FileName, loaded_song *Song) {
 
-    loaded_song Song = {0};
-
+    /**************************/
+    /* Initialize Song Struct */
+    /**************************/
     {
         char FileNameBuffer[1024];
         int OutFileNameLength = snprintf(FileNameBuffer, sizeof(FileNameBuffer), "%s.wav", FileName);
         assert(OutFileNameLength > 0);
 
-        Song.OutFile = malloc(OutFileNameLength + 1);
-        assert(Song.OutFile);
+        Song->OutFile = malloc(OutFileNameLength + 1);
+        assert(Song->OutFile);
 
-        memcpy(Song.OutFile, FileNameBuffer, OutFileNameLength + 1);
-        Song.OutFile[OutFileNameLength] = '\0';
+        memcpy(Song->OutFile, FileNameBuffer, OutFileNameLength + 1);
+        Song->OutFile[OutFileNameLength] = '\0';
         
-        Song.BeatsPerMinute = 120;
-        Song.SampleRate = 44100;
-        Song.RowsPerBeat = 1;
-        Song.Amplitude = 0.3;
+        Song->BeatsPerMinute = 120;
+        Song->SampleRate = 44100;
+        Song->RowsPerBeat = 1;
+        Song->MasterVolume = 0.3;
+
+        for (uint32_t i = 0; i < ArraySize(Song->Instruments); ++i) {
+            Song->Instruments[i].VoiceFunction = SineWave;
+        }
     }
     
     char *FileContents;
@@ -244,9 +283,7 @@ loaded_song LoadSongFile(const char *FileName) {
     uint32_t Column = 0;
     uint32_t Row = 0;
 
-    uint16_t CurrentIntrument = 0;
-
-    uint8_t ChannelToInstrument[256] = {0};
+    instrument_id CurrentIntrument = 0;
 
     cell_buffer Setting = {0};
     cell_buffer Value = {0};
@@ -273,26 +310,42 @@ loaded_song LoadSongFile(const char *FileName) {
             bool UnknownSetting = false;
 
             if (CompareCanonical(Setting.Chars, "bpm")) {
-                Song.BeatsPerMinute = atoi(Value.Chars);
+                Song->BeatsPerMinute = atoi(Value.Chars);
             }
             else if (CompareCanonical(Setting.Chars, "sample""rate")) {
-                Song.SampleRate = atoi(Value.Chars);
+                Song->SampleRate = atoi(Value.Chars);
             }
             else if (CompareCanonical(Setting.Chars, "rows""per""beat")) {
-                Song.RowsPerBeat = atoi(Value.Chars);
+                Song->RowsPerBeat = atoi(Value.Chars);
             }
             else if (CompareCanonical(Setting.Chars, "instrument")) {
                 CurrentIntrument = atoi(Value.Chars);
-                printf("Parsing Settings for instrument %d.\n", CurrentIntrument);
+                fprintf(stderr, "Parsing Settings for instrument %d.\n", CurrentIntrument);
             }
-            else if (CompareCanonical(Setting.Chars, "amplitude")) {
-                Song.Amplitude = atof(Value.Chars);
+            else if (CompareCanonical(Setting.Chars, "release")) {
+                instrument *I = &Song->Instruments[CurrentIntrument];
+                I->Release = atof(Value.Chars);
+            }
+            else if (CompareCanonical(Setting.Chars, "voice")) {
+                instrument *I = &Song->Instruments[CurrentIntrument];
+                
+                if (CompareCanonical(Value.Chars, "sine""wave"))
+                    I->VoiceFunction = SineWave;
+                else if (CompareCanonical(Value.Chars, "triangle"))
+                    I->VoiceFunction = TriangleWave;
+                else if (CompareCanonical(Value.Chars, "square"))
+                    I->VoiceFunction = SquareWave;
+                else if (CompareCanonical(Value.Chars, "saw"))
+                    I->VoiceFunction = SawWave;
+            }
+            else if (CompareCanonical(Setting.Chars, "master""volume")) {
+                Song->MasterVolume = atof(Value.Chars);
             }
             else if (CompareCanonical(Setting.Chars, "output""file")) {
                 size_t Length = ValueLength + 1;
-                Song.OutFile = malloc(Length);
-                assert(Song.OutFile);
-                memcpy(Song.OutFile, Value.Chars, Length);
+                Song->OutFile = malloc(Length);
+                assert(Song->OutFile);
+                memcpy(Song->OutFile, Value.Chars, Length);
             }
             else {
                 fprintf(stderr, "Ignored unknown setting, \"%s = %s\"\n", Setting.Chars, Value.Chars);
@@ -316,17 +369,16 @@ loaded_song LoadSongFile(const char *FileName) {
                 size_t Channel = Column - 2;
                 assert(Channel < 16);
 
-                Ev->InstrumentID = ChannelToInstrument[Channel];
-                Ev->RowTime = Row - 1;
+                Ev->Row = Row - 1;
                 Ev->Frequency = NoteStringToFrequency(Cell.Chars);
 
-                if (NULL == Song.Channels[Channel].FirstEvent) {
-                    Song.Channels[Channel].FirstEvent = Ev;
-                    Song.Channels[Channel].LastEvent = Ev;
+                if (NULL == Song->Channels[Channel].FirstEvent) {
+                    Song->Channels[Channel].FirstEvent = Ev;
+                    Song->Channels[Channel].LastEvent = Ev;
                 }
                 else {
-                    Song.Channels[Channel].LastEvent->Next = Ev;
-                    Song.Channels[Channel].LastEvent = Ev;
+                    Song->Channels[Channel].LastEvent->Next = Ev;
+                    Song->Channels[Channel].LastEvent = Ev;
                 }
             }
 
@@ -336,12 +388,12 @@ loaded_song LoadSongFile(const char *FileName) {
         /* Parse Instrument IDs */
         /************************/
         else if (Row == 0) {
-            cell_buffer InstrumentID;
+            cell_buffer InstrumentIDBuf;
 
-            if (GetCell(&At, &InstrumentID) > 0) {
+            if (GetCell(&At, &InstrumentIDBuf) > 0) {
                 size_t Channel = Column - 2;
-                ChannelToInstrument[Channel] = atoi(InstrumentID.Chars);
-                ++Song.NumChannels;
+                ++Song->NumChannels;
+                Song->Channels[Channel].InstrumentID = atoi(InstrumentIDBuf.Chars);
             }
             NextCell(&At, &Row, &Column);
         }
@@ -349,8 +401,9 @@ loaded_song LoadSongFile(const char *FileName) {
             assert(false);
         }
     }
-    
-    return Song;
+
+    Song->SecondsPerRow = 60.0 / (Song->BeatsPerMinute * Song->RowsPerBeat);
+    Song->Duration = Song->SecondsPerRow*Row;
 }
 
 #endif

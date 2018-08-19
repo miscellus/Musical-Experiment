@@ -7,4 +7,8 @@
 
 #define FourChars(s) (uint32_t)((s[3]<<24) | (s[2]<<16) | (s[1]<<8) | s[0])
 
+#define ArraySize(A) (sizeof(A)/sizeof(*A))
+
+/* Program Specific*/
+
 #endif
