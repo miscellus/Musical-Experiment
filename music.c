@@ -12,17 +12,10 @@
 
 #define ArraySize(A) (sizeof(A)/sizeof(*A))
 
-#define RowToSeconds(RowTime) ((RowTime)*SecondsPerDivision)
-
-typedef struct {
-    double Frequency; // In hertz
-    double Duration; // In beats
-} note_hit;
-
-static note_hit Lullaby[] = {{a4,1/2.}, {a4,1/2.}, {c5,2}, {a4,1/2.}, {a4,1/2.}, {c5,2}, {a4,1/2.}, {c5,1/2.}, {f5,1}, {e5,3/2.}, {d5,1/2.}, {d5,1}, {c5,1}, {g4,1/2.}, {a4,1/2.}, {A4,3/2.}, {g4,1/2.}, {g4,1/2.}, {a4,1/2.}, {A4,3/2.}, {g4,1/2.}, {g4,1/2.}, {A4,1/2.}, {e5,1/2.}, {d5,1/2.}, {c5,1}, {e5,1}, {f5,2}, {f4,1/2.}, {f4,1/2.}, {f5,2}, {d5,1/2.}, {A4,1/2.}, {c5,2}, {a4,1/2.}, {f4,1/2.}, {A4,7./24.}, {c5,1./3.}, {A4,3./8.}, {a4,1}, {g4,1}, {f4,5/2.}, {00,2}, };
+#define RowToSeconds(RowTime) ((RowTime)*SecondsPerRow)
 
 int main(int ArgumentCount, char const *Arguments[]) {
-    if (ArgumentCount <= 1) {
+    if (ArgumentCount != 2) {
         fprintf(stderr, "USAGE: music <csv song file>\n");
         return -1;
     }
@@ -43,20 +36,17 @@ int main(int ArgumentCount, char const *Arguments[]) {
             Song.OutFile,
             Song.NumChannels);
 
-    double SecondsPerDivision = 60.0 / (Song.BeatsPerMinute * Song.RowsPerBeat);
+    double SecondsPerRow = 60.0 / (Song.BeatsPerMinute * Song.RowsPerBeat);
 
-    int16_t *Samples = malloc(MAX_SAMPLES * sizeof(*Samples));
+    size_t MaxSamples = Song.SampleRate * 60 * 60;
+
+    int16_t *Samples = malloc(MaxSamples * sizeof(*Samples));
     size_t SampleIndex = 0;
     double TimeElapsed = 0; // in seconds
-    double TimeHit = 0;
-    double TimeHitEnd = Lullaby[0].Duration*SecondsPerDivision;
-
-    int NoteIndex = 0;
-    note_hit Hit = Lullaby[NoteIndex];
 
     double Sum;
 
-    double Fade = 5*SecondsPerDivision;
+    double Fade = 0.5;
 
     fprintf(stderr, "Generating song, \"%s\":\n", Song.OutFile);
 
@@ -105,26 +95,11 @@ int main(int ArgumentCount, char const *Arguments[]) {
             double TimeSinceLastNote = TimeElapsed - RowToSeconds(E->RowTime);
             
             if (TimeSinceLastNote >= 0) {
-                if (TimeSinceLastNote < 0) {
-                    printf("TE(%f) TSLN(%f) RT(%d) SPD(%f)\n", TimeElapsed, TimeSinceLastNote, E->RowTime, SecondsPerDivision);
-                }
-
-                double TT = AMPLITUDE * pow((1 - Min(TimeSinceLastNote/Fade, 1)),2);
+                double TT = Song.Amplitude * pow((1 - Min(TimeSinceLastNote/Fade, 1)),2);
 
                 Sum += TT * TriangleWave(TimeElapsed * E->Frequency);
             }
         }
-
-        // if (TimeElapsed >= TimeHitEnd) {
-        //     NoteIndex += 1;
-        //     Hit = Lullaby[NoteIndex];
-        //     TimeHit = TimeElapsed;
-        //     TimeHitEnd = TimeHit + Hit.Duration*SecondsPerDivision;
-        // }
-
-        // Sum += TriangleWave(TimeElapsed * Hit.Frequency);
-
-        // Sum *= AMPLITUDE * pow((1 - Min(Fade, TimeElapsed-TimeHit)/Fade),10);
 
         Sum = Clamp(Sum, -1, 1);
 
@@ -136,6 +111,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
             fprintf(stderr, "\rSong length: %d seconds.", (uint32_t)(SampleIndex/Song.SampleRate));
         }
     }
+
     fprintf(stderr, "\n");
 
     SaveWaveFile(Samples, SampleIndex, Song.OutFile, Song.SampleRate);

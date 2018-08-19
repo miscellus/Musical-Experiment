@@ -1,0 +1,16 @@
+"Sheet Version",0.1.0,1
+BPM,91,a4
+"Sample Rate",44100,
+"Rows Per Beat",8,
+"Concert Pitch",440,
+Amplitude,1,
+,,
+Instrument,1,
+Voice,"Sine Wave",
+Attack,,
+Decay,,
+Sustain,,
+Release,,
+,,
+overtone,"2 0.1",
+overtone,"7 0.01",

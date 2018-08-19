@@ -82,14 +82,7 @@ void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
     fclose(FileHandle);
 }
 
-typedef enum {
-    EventType_Null = 0,
-    EventType_Hit = 1,
-    EventType_Release = 2,
-} song_event_type;
-
-typedef struct song_event{
-    song_event_type EventType:16;
+typedef struct song_event {
     uint16_t InstrumentID;
     uint16_t RowTime;
     double Frequency;
@@ -107,28 +100,25 @@ typedef struct {
     uint32_t RowsPerBeat;
     char *OutFile;
     uint32_t NumChannels;
+    double Amplitude;
     song_channel Channels[16];
 } loaded_song;
 
-bool IsWhiteSpaceChar(char c) {
+typedef struct {
+    char Chars[128];
+} cell_buffer;
+
+static inline bool IsWhiteSpaceChar(char c) {
     return c <= ' ';
 }
 
-bool IsNumericChar(char c) {
+static inline bool IsNumericChar(char c) {
     return c >= '0' && c <= '9';
 }
 
 static inline bool IsLetterChar(char c) {
     return (c >= 'A' && c <= 'Z')
         || (c >= 'a' && c <= 'z');    
-}
-
-bool IsIdentifierStartChar(char c) {
-    return IsLetterChar(c) || (c == '_');
-}
-
-bool IsIdentifierChar(char c) {
-    return IsIdentifierStartChar(c) || IsNumericChar(c); 
 }
 
 static inline bool CharIn(char c, const char *Chars) {
@@ -179,10 +169,6 @@ void MakeStringCanonical(char *Scan) {
     }
     *WriteTo = '\0';
 }
-
-typedef struct {
-    char Chars[128];
-} cell_buffer;
 
 size_t GetCell(char **At, cell_buffer *Buffer) {
     while (**At && ((**At <= ' ' && **At != '\n') || **At == '"')) {
@@ -245,6 +231,7 @@ loaded_song LoadSongFile(const char *FileName) {
         Song.BeatsPerMinute = 120;
         Song.SampleRate = 44100;
         Song.RowsPerBeat = 1;
+        Song.Amplitude = 0.3;
     }
     
     char *FileContents;
@@ -256,6 +243,8 @@ loaded_song LoadSongFile(const char *FileName) {
 
     uint32_t Column = 0;
     uint32_t Row = 0;
+
+    uint16_t CurrentIntrument = 0;
 
     uint8_t ChannelToInstrument[256] = {0};
 
@@ -293,7 +282,11 @@ loaded_song LoadSongFile(const char *FileName) {
                 Song.RowsPerBeat = atoi(Value.Chars);
             }
             else if (CompareCanonical(Setting.Chars, "instrument")) {
-                // TODO
+                CurrentIntrument = atoi(Value.Chars);
+                printf("Parsing Settings for instrument %d.\n", CurrentIntrument);
+            }
+            else if (CompareCanonical(Setting.Chars, "amplitude")) {
+                Song.Amplitude = atof(Value.Chars);
             }
             else if (CompareCanonical(Setting.Chars, "output""file")) {
                 size_t Length = ValueLength + 1;
@@ -323,7 +316,6 @@ loaded_song LoadSongFile(const char *FileName) {
                 size_t Channel = Column - 2;
                 assert(Channel < 16);
 
-                Ev->EventType = EventType_Hit;
                 Ev->InstrumentID = ChannelToInstrument[Channel];
                 Ev->RowTime = Row - 1;
                 Ev->Frequency = NoteStringToFrequency(Cell.Chars);
