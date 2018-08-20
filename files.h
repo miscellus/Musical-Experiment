@@ -105,16 +105,17 @@ typedef struct {
 
 typedef double (*voice_function)(double);
 
-typedef struct {
-    double Time;
+typedef struct generator {
+    voice_function Voice;
     double Amplitude;
-} amplitude_point;
+    double FrequencyFactor;
+    struct generator *Next;
+} generator;
 
 typedef struct {
-    voice_function VoiceFunction;
-    uint8_t OvertoneCount;
-    overtone Overtones[8];
-    amplitude_point AmplitudeEnvolope[8];
+    generator *FirstGenerator;
+    double VolumeTimes[8];
+    double VolumeValues[8];
     double Release;
 } instrument;
 
@@ -307,6 +308,8 @@ void LoadSongFile(const char *FileName, loaded_song *Song) {
             
             // MakeStringCanonical(Setting.Chars);
 
+            instrument *I = &Song->Instruments[CurrentIntrument];
+            
             bool UnknownSetting = false;
 
             if (CompareCanonical(Setting.Chars, "bpm")) {
@@ -323,20 +326,42 @@ void LoadSongFile(const char *FileName, loaded_song *Song) {
                 fprintf(stderr, "Parsing Settings for instrument %d.\n", CurrentIntrument);
             }
             else if (CompareCanonical(Setting.Chars, "release")) {
-                instrument *I = &Song->Instruments[CurrentIntrument];
                 I->Release = atof(Value.Chars);
             }
-            else if (CompareCanonical(Setting.Chars, "voice")) {
-                instrument *I = &Song->Instruments[CurrentIntrument];
+            else if (CompareCanonical(Setting.Chars, "generator")) {                
                 
-                if (CompareCanonical(Value.Chars, "sine""wave"))
-                    I->VoiceFunction = SineWave;
-                else if (CompareCanonical(Value.Chars, "triangle"))
-                    I->VoiceFunction = TriangleWave;
-                else if (CompareCanonical(Value.Chars, "square"))
-                    I->VoiceFunction = SquareWave;
-                else if (CompareCanonical(Value.Chars, "saw"))
-                    I->VoiceFunction = SawWave;
+                generator Gen = {0};
+
+                // Parse Generator voice
+                
+                char *At = Value.Chars;
+                while(!IsWhiteSpaceChar(*At)) ++At;
+                *At = '\0';
+                
+                if (CompareCanonical(Value.Chars, "sine")) {
+                    Gen.Voice = SineWave;
+                }
+                else if (CompareCanonical(Value.Chars, "triangle")) {
+                    Gen.Voice = TriangleWave;
+                }
+                else if (CompareCanonical(Value.Chars, "square")) {
+                    Gen.Voice = SquareWave;
+                }
+                else if (CompareCanonical(Value.Chars, "saw")) {
+                    Gen.Voice = SawWave;
+                }
+                
+                ++At;
+
+                // Parse Generator Amplitude and Factor
+                EatSpaces(&At);
+                Gen.Amplitude = atof(At);
+                
+                while(!IsWhiteSpaceChar(*At)) ++At;
+                EatSpaces(&At);
+
+                Gen.FrequencyFactor = atof(At);
+        
             }
             else if (CompareCanonical(Setting.Chars, "master""volume")) {
                 Song->MasterVolume = atof(Value.Chars);

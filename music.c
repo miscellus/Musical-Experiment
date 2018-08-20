@@ -73,7 +73,9 @@ int main(int ArgumentCount, char const *Arguments[]) {
                 Amplitude = 1 - Min(TimeSinceLastNote/I.Release, 1);
 
                 Sum += Amplitude * (
-                    + 1.0  * I.VoiceFunction(TimeElapsed * E->Frequency)
+                    + 0.3  * I.VoiceFunction(1* TimeElapsed * E->Frequency)
+                    + 0.3  * I.VoiceFunction(2* (TimeElapsed+0.22) * E->Frequency*1.001)
+                    + 0.3  * I.VoiceFunction(2* (TimeElapsed+0.1) * E->Frequency*0.998)
                     + 0.2  * I.VoiceFunction(2 * TimeElapsed * E->Frequency)
                     + 0.1  * I.VoiceFunction(3 * TimeElapsed * E->Frequency)
                     + 0.05 * I.VoiceFunction(4 * TimeElapsed * E->Frequency)
