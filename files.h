@@ -306,7 +306,7 @@ void LoadSongFile(const char *FileName, loaded_song *Song) {
             size_t ValueLength = GetCell(&At, &Value);
             
             // MakeStringCanonical(Setting.Chars);
-
+\
             bool UnknownSetting = false;
 
             if (CompareCanonical(Setting.Chars, "bpm")) {
@@ -329,7 +329,7 @@ void LoadSongFile(const char *FileName, loaded_song *Song) {
             else if (CompareCanonical(Setting.Chars, "voice")) {
                 instrument *I = &Song->Instruments[CurrentIntrument];
                 
-                if (CompareCanonical(Value.Chars, "sine""wave"))
+                if (CompareCanonical(Value.Chars, "sine"))
                     I->VoiceFunction = SineWave;
                 else if (CompareCanonical(Value.Chars, "triangle"))
                     I->VoiceFunction = TriangleWave;
@@ -362,8 +362,8 @@ void LoadSongFile(const char *FileName, loaded_song *Song) {
         else if (Row > 0) {
 
             cell_buffer Cell;
-            song_event *Ev = malloc(sizeof(*Ev));
-            *Ev = (song_event){0};
+            song_event *Ev = calloc(1, sizeof(*Ev));
+            // *Ev = (song_event){0};
 
             if (GetCell(&At, &Cell) > 0) {
                 size_t Channel = Column - 2;

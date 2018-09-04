@@ -2,11 +2,14 @@
 
 gcc -g -std=c99 -Wall -pedantic -o music music.c -lm
 
-
-if [[ $2 = "run" ]]; then
-    ./music tone.csv
-    cvlc --no-loop tone.csv.wav
-fi
+case $1 in 
+	run)
+		./music tone.csv
+		cvlc --quiet --play-and-exit Lullaby.wav
+		;;
+	debug)
+		nemiver music tone.csv ;;
+esac
 
 bash -c "read line"
  
