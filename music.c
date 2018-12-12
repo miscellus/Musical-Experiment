@@ -9,10 +9,6 @@
 #include "files.h"
 
 int main(int ArgumentCount, char const *Arguments[]) {
-    (void)SineWave;
-    (void)TriangleWave;
-    (void)SquareWave;
-    (void)SawWave;
 
     if (ArgumentCount != 2) {
         fprintf(stderr, "USAGE: music <csv song file>\n");
@@ -66,7 +62,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
             }
 
             double TimeSinceLastNote = TimeElapsed - Song.SecondsPerRow*E->Row;
-            
+
             if (TimeSinceLastNote >= 0) {
 
                 double Amplitude;
