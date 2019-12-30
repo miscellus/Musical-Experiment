@@ -1,0 +1,36 @@
+# ensemble syntax test
+
+set
+(
+    bpm = 120.
+    sample_rate = 48000.
+    beat = bpm/
+)
+
+do
+(
+    (do melody_1)|(do drums_1).
+    (do melody_1).
+    (do melody_2)|(do drums_2).
+    (do melody_2)|(do drums_2)
+)
+
+on drums_1
+(
+    set (instrument jungle_drums, length 4 beats).
+    sequence play
+    (
+
+    )
+)
+
+on melody_1
+(
+    set instrument cello.
+
+    after 4 beats
+)|(
+    set instrument harp.
+
+    after 4 beats
+).

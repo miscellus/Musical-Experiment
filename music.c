@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
-
+// Test
 #include "helpers.h"
 #include "global_constants.h"
 #include "voice_functions.h"
@@ -18,7 +18,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
     loaded_song Song = {0};
     LoadSongFile(Arguments[1], &Song);
 
-    printf( "Song = {\n"
+    fprintf(stderr, "Song = {\n"
             "    BeatsPerMinute = %d\n"
             "    SampleRate = %d\n"
             "    RowsPerBeat = %d\n"
@@ -38,8 +38,6 @@ int main(int ArgumentCount, char const *Arguments[]) {
     size_t SampleIndex = 0;
     double TimeElapsed = 0; // in seconds
 
-    double Sum;
-
     fprintf(stderr, "Generating song, \"%s\":\n", Song.OutFile);
 
     song_event *Ev[ArraySize(Song.Channels)];
@@ -49,7 +47,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
 
     while (TimeElapsed < Song.Duration) {
 
-        Sum = 0;
+        double Sum = 0;
 
         // Advance song if next note reached
         for (int Channel = 0; Channel < Song.NumChannels; ++Channel) {
@@ -69,10 +67,16 @@ int main(int ArgumentCount, char const *Arguments[]) {
                 Amplitude = 1 - Min(TimeSinceLastNote/I.Release, 1);
 
                 Sum += Amplitude * (
-                    + 1.0  * I.VoiceFunction(TimeElapsed * E->Frequency)
-                    + 0.2  * I.VoiceFunction(2 * TimeElapsed * E->Frequency)
-                    + 0.1  * I.VoiceFunction(3 * TimeElapsed * E->Frequency)
-                    + 0.05 * I.VoiceFunction(4 * TimeElapsed * E->Frequency)
+                    + (
+                        // + 0.33  * I.VoiceFunction(1.0005 * TimeElapsed * E->Frequency)
+                        + 0.33  * I.VoiceFunction(1 * TimeElapsed * E->Frequency)
+                        // + 0.33  * I.VoiceFunction(0.9995 * TimeElapsed * E->Frequency)
+                    )
+                    // + 0.5 * (
+                        // + 1  * I.VoiceFunction(2 * TimeElapsed * E->Frequency)
+                    // )
+                    // + 0.1  * I.VoiceFunction(3 * TimeElapsed * E->Frequency)
+                    // + 0.05 * I.VoiceFunction(4 * TimeElapsed * E->Frequency)
                 );
             }
         }
@@ -91,7 +95,7 @@ int main(int ArgumentCount, char const *Arguments[]) {
 
     fprintf(stderr, "\n");
 
-    SaveWaveFile(Samples, SampleIndex, Song.OutFile, Song.SampleRate);
+    WriteWaveFile(stdout, Samples, SampleIndex, Song.SampleRate);
 
     return 0;
 }

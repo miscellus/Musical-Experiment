@@ -29,6 +29,7 @@ typedef struct wav_header {
     // uint8_t bytes[]; // Remainder of wave file is bytes
 } wav_header;
 
+#if 0
 static void SaveWaveFile(int16_t *Samples, size_t NumSamples, const char *FileName, uint32_t SampleRate) {
     size_t TotalFileSize = sizeof(wav_header) + NumSamples*sizeof(int16_t);
     
@@ -53,6 +54,30 @@ static void SaveWaveFile(int16_t *Samples, size_t NumSamples, const char *FileNa
     fwrite(Samples, sizeof(int16_t), NumSamples, FileHandle);
     fclose(FileHandle);
 }
+#else
+static void WriteWaveFile(FILE *FileHandle, int16_t *Samples, size_t NumSamples, uint32_t SampleRate) {
+    size_t TotalFileSize = sizeof(wav_header) + NumSamples*sizeof(int16_t);
+    
+    wav_header wh;
+    wh.RiffHeader = FourChars("RIFF");
+    wh.WavSize = TotalFileSize - 8;
+    wh.WaveHeader = FourChars("WAVE");
+
+    wh.FmtHeader = FourChars("fmt ");
+    wh.FmtChunkSize = 16;
+    wh.AudioFormat = 1; // 1 for PCM
+    wh.NumChannels = 1;
+    wh.SampleRate = SampleRate;
+    wh.ByteRate = wh.SampleRate * wh.NumChannels * sizeof(int16_t);
+    wh.SampleAlignment = wh.NumChannels * sizeof(int16_t);
+    wh.BitDepth = 8*sizeof(int16_t);
+    wh.DataHeader = FourChars("data");
+    wh.DataBytes = NumSamples*sizeof(int16_t);
+
+    fwrite(&wh, sizeof(wh), 1, FileHandle);
+    fwrite(Samples, sizeof(int16_t), NumSamples, FileHandle);
+}
+#endif
 
 void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
     
@@ -73,11 +98,11 @@ void FileGetContents(const char *FilePath, char **Buffer, size_t *BufferSize) {
             assert(AmountRead == *BufferSize);
         }
         else {
-            printf("Invalid file size %d for file '%s'\n", (int)*BufferSize, FilePath);
+            fprintf(stderr, "Invalid file size %d for file '%s'\n", (int)*BufferSize, FilePath);
         }
     }
     else {
-        printf("Could not read file '%s'\n", FilePath);
+        fprintf(stderr, "Could not read file '%s'\n", FilePath);
     }
 
     fclose(FileHandle);
@@ -306,7 +331,7 @@ void LoadSongFile(const char *FileName, loaded_song *Song) {
             size_t ValueLength = GetCell(&At, &Value);
             
             // MakeStringCanonical(Setting.Chars);
-\
+
             bool UnknownSetting = false;
 
             if (CompareCanonical(Setting.Chars, "bpm")) {

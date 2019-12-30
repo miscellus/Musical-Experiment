@@ -1,0 +1,4 @@
+Ensemble Syntax
+
+<block>		::= (set do*)
+<set>		::= <

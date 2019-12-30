@@ -3,8 +3,14 @@
 
 #include <stdint.h>
 
+#define SINE_MEAN_MAG 0.637
+#define TRIANGLE_MEAN_MAG 0.5
+#define SQUARE_MEAN_MAG 1
+
 static double SineWave(double v) {
-    return sin(TAU * v);
+    v = sin(TAU * v);
+    v *= TRIANGLE_MEAN_MAG/SINE_MEAN_MAG;
+    return v;
 }
 
 static double TriangleWave(double v) {
@@ -29,6 +35,8 @@ static double SquareWave(double v) {
     if (v < 0.5) v = 1;
     else v = -1;
 
+    v *= TRIANGLE_MEAN_MAG/SQUARE_MEAN_MAG;
+
     return v;
 }
 
@@ -37,6 +45,8 @@ static double SawWave(double v) {
     v -= (double)(int64_t)v;
     v *= 2;
     v -= 1;
+
+    // TODO(jakob): What is the rectified mean magnitude of a saw wave? 
 
     return v;
 }
